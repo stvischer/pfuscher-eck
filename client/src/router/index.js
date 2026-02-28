@@ -6,7 +6,11 @@ const routes = [
     path: '/',
     name: 'home',
     component: () => import('../pages/HomePage.vue'),
-    meta: { requiresAuth: true },
+  },
+  {
+    path: '/chat',
+    name: 'chat',
+    component: () => import('../pages/ChatPage.vue'),
   },
   {
     path: '/login',
@@ -39,10 +43,6 @@ router.beforeEach(async (to) => {
   if (auth.user === null && !sessionStorage.getItem('auth_checked')) {
     sessionStorage.setItem('auth_checked', '1')
     await auth.fetchMe()
-  }
-
-  if (to.meta.requiresAuth && !auth.isAuthenticated) {
-    return { name: 'login', query: { redirect: to.fullPath } }
   }
 
   if (to.meta.guestOnly && auth.isAuthenticated) {
