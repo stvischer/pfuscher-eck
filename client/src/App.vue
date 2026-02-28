@@ -1,11 +1,16 @@
 <template>
-  <main>
-    <h1>Pfuscher Eck</h1>
-  </main>
+  <q-layout view="hHh lpR fFf">
+    <q-page-container>
+      <router-view />
+    </q-page-container>
+  </q-layout>
 </template>
 
 <script setup>
 </script>
 
-<style scoped>
+<style>
+body {
+  background: #1a1a2e;
+}
 </style>
