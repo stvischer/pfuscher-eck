@@ -13,6 +13,18 @@ async function socketio(fastify) {
 
   fastify.decorate('io', io)
 
+  // Authenticate every Socket.IO connection via Bearer token in handshake.auth
+  io.use((socket, next) => {
+    const token = socket.handshake.auth?.token
+    if (!token) return next(new Error('Unauthorized'))
+    try {
+      socket.data.user = fastify.jwt.verify(token)
+      next()
+    } catch {
+      next(new Error('Unauthorized'))
+    }
+  })
+
   io.on('connection', (socket) => {
     const uuid = randomUUID()
     socket.data.uuid = uuid
