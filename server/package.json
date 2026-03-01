@@ -17,6 +17,7 @@
     "fastify": "^5.7.4",
     "fastify-plugin": "^5.1.0",
     "mariadb": "^3.5.1",
+    "node-geocoder": "^4.4.1",
     "socket.io": "^4.8.3"
   }
 }

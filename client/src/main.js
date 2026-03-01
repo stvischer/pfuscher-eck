@@ -3,7 +3,7 @@ import { createPinia } from 'pinia'
 import { Quasar } from 'quasar'
 import '@quasar/extras/material-icons/material-icons.css'
 import 'quasar/dist/quasar.css'
-import './components/chat/chat.css'
+import './styles/main.css'
 import App from './App.vue'
 import router from './router/index.js'
 

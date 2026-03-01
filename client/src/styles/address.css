@@ -1,0 +1,61 @@
+/*
+ * address.css
+ * BEM block: `address`
+ * Scoped under .address__geocoder to avoid collisions with chat.css
+ * and any other global styles.
+ */
+
+/* ── Block: wrapper around the autocomplete input ─────────────────────── */
+.address__geocoder {
+  flex: 1;
+  position: relative;
+}
+
+/* ── Element: the text input injected by @geoapify/geocoder-autocomplete ─ */
+.address__geocoder .geoapify-autocomplete-input {
+  width: 100%;
+  padding: 8px 12px;
+  font-size: 14px;
+  border: 1px solid rgba(255, 255, 255, 0.24);
+  border-radius: 4px;
+  background: transparent;
+  color: inherit;
+  outline: none;
+  box-sizing: border-box;
+  font-family: inherit;
+  transition: border-color 0.2s;
+}
+
+.address__geocoder .geoapify-autocomplete-input:focus {
+  border-color: var(--q-primary);
+}
+
+/* ── Element: the dropdown list ──────────────────────────────────────────  */
+.address__geocoder .geoapify-autocomplete-items {
+  position: absolute;
+  z-index: 9999;
+  background: #1d1d2e;
+  border: 1px solid rgba(255, 255, 255, 0.15);
+  border-radius: 4px;
+  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.4);
+  margin-top: 4px;
+  overflow: hidden;
+  width: 100%;
+}
+
+/* ── Element: individual suggestion row ──────────────────────────────────  */
+.address__geocoder .geoapify-autocomplete-item {
+  padding: 8px 12px;
+  cursor: pointer;
+  font-size: 13px;
+}
+
+.address__geocoder .geoapify-autocomplete-item:hover,
+.address__geocoder .geoapify-autocomplete-item.active {
+  background: rgba(var(--q-primary-rgb), 0.2);
+}
+
+/* ── Element: icon inside each suggestion row (hidden) ───────────────────  */
+.address__geocoder .geoapify-autocomplete-item .icon {
+  display: none;
+}
