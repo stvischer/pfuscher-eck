@@ -49,7 +49,7 @@
               :username="msg.username"
               :content="msg.content"
               :stamp="formatStamp(msg.created_at)"
-              :sent="msg.user_id === auth.user?.id"
+              :sent="Number(msg.user_id) === auth.user?.id"
             />
           </template>
         </div>
