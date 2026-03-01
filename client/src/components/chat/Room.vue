@@ -84,7 +84,7 @@
 </template>
 
 <script setup>
-import { ref, computed, watch, nextTick, onUnmounted } from 'vue'
+import { ref, computed, watch, nextTick, onMounted, onUnmounted } from 'vue'
 import { useQuasar } from 'quasar'
 import ChatMessage from './Message.vue'
 import { api } from '../../composables/useApi.js'
@@ -143,11 +143,21 @@ watch(() => props.roomId, (newId, oldId) => {
   }
 }, { immediate: true })
 
+// Re-join current room after a socket reconnect (server-side rooms don't persist)
+function onReconnect() {
+  if (props.roomId) socket.emit('room:join', props.roomId)
+}
+
 // Receive new messages from server
-socket.on('message:new', (msg) => {
+function onMessageNew(msg) {
   if (msg.chatId !== props.roomId) return
   messages.value.push(msg)
   scrollToBottom()
+}
+
+onMounted(() => {
+  socket.on('connect',     onReconnect)
+  socket.on('message:new', onMessageNew)
 })
 
 function send() {
@@ -160,7 +170,8 @@ function send() {
 
 onUnmounted(() => {
   if (props.roomId) socket.emit('room:leave', props.roomId)
-  socket.off('message:new')
+  socket.off('connect',     onReconnect)
+  socket.off('message:new', onMessageNew)
 })
 </script>
 
