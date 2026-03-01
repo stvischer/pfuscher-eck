@@ -10,4 +10,4 @@ CREATE TABLE IF NOT EXISTS users (
   PRIMARY KEY (id),
   UNIQUE KEY uq_users_username (username),
   UNIQUE KEY uq_users_email    (email)
-);
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;

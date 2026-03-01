@@ -13,6 +13,15 @@ const migrations = [
   '001_create_users.sql',
   '002_seed_admin.sql',
   '003_create_refresh_tokens.sql',
+  '004_create_chat.sql',
+  '005_seed_chat.sql',
+  '006_create_chats.sql',
+  '007_seed_dm_chat.sql',
+  '008_seed_dummy_conversations.sql',
+  '009_seed_trio_chat.sql',
+  '010_add_attachment.sql',
+  '011_add_reply_to.sql',
+  '012_create_reactions.sql',
 ]
 
 const conn = await createConnection({

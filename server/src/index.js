@@ -28,13 +28,13 @@ const fastify = Fastify({ logger: true })
 // env must be ready before any plugin that reads fastify.config
 await fastify.register(fastifyEnv, { schema, dotenv: true, confKey: 'config' })
 
-// Auto-load all plugins (cors, redis, mariadb, socketio, …)
+// Auto-load all plugins (auth, cors, mariadb, redis, socketio)
 await fastify.register(autoload, {
-  dir:   join(__dirname, 'plugins'),
+  dir:      join(__dirname, 'plugins'),
   forceESM: true,
 })
 
-// Auto-load all routes
+// Auto-load all routes (auth, chat, health)
 await fastify.register(autoload, {
   dir:      join(__dirname, 'routes'),
   forceESM: true,

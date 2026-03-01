@@ -31,6 +31,10 @@
             </q-list>
           </q-btn-dropdown>
         </template>
+
+        <template v-else>
+          <q-btn flat no-caps icon="login" label="Login" :to="{ name: 'login' }" />
+        </template>
       </q-toolbar>
     </q-header>
 
