@@ -5,7 +5,7 @@ DROP TABLE IF EXISTS chat_rooms;
 DROP TABLE IF EXISTS chats;
 
 CREATE TABLE chat_rooms (
-  id         CHAR(36)     NOT NULL DEFAULT (UUID()),
+  id         CHAR(36)     NOT NULL,
   name       VARCHAR(100)          NULL,
   type       ENUM('direct','group')   NOT NULL DEFAULT 'direct',
   visibility ENUM('private','public') NOT NULL DEFAULT 'private',
@@ -13,6 +13,13 @@ CREATE TABLE chat_rooms (
 
   PRIMARY KEY (id)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+-- Generate a new UUID for every inserted row
+DROP TRIGGER IF EXISTS before_insert_chat_rooms;
+CREATE TRIGGER before_insert_chat_rooms
+  BEFORE INSERT ON chat_rooms
+  FOR EACH ROW
+  SET NEW.id = IF(NEW.id IS NULL OR NEW.id = '', UUID(), NEW.id);
 
 CREATE TABLE chat_members (
   chat_id    CHAR(36)     NOT NULL,

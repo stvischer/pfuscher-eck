@@ -1,91 +1,78 @@
 <template>
-  <q-page padding class="column" style="height: calc(100vh - 50px)">
+  <q-page class="chat-page">
+    <div class="chat-layout fit row">
 
-    <div class="text-h6 q-mb-md">
-      <q-icon name="chat" class="q-mr-sm" />Chat
-    </div>
-
-    <!-- Message list -->
-    <q-scroll-area ref="scrollArea" class="col message-area q-pa-sm rounded-borders">
+      <!-- Room list panel -->
       <div
-        v-for="(msg, i) in messages"
-        :key="i"
-        class="q-mb-sm row"
-        :class="msg.self ? 'justify-end' : 'justify-start'"
+        class="room-list-panel"
+        :class="{ 'hidden-mobile': selectedRoomId && $q.screen.lt.md }"
       >
-        <q-chat-message
-          :text="[msg.text]"
-          :name="msg.self ? 'You' : msg.username"
-          :sent="msg.self"
-          :stamp="msg.timestamp"
-          :bg-color="msg.self ? 'primary' : 'grey-3'"
-          :text-color="msg.self ? 'white' : 'dark'"
+        <ChatRoomList
+          ref="roomListRef"
+          v-model="selectedRoomId"
         />
       </div>
-      <div v-if="messages.length === 0" class="text-grey text-center q-py-lg">
-        No messages yet. Say hi!
+
+      <q-separator vertical />
+
+      <!-- Room panel -->
+      <div
+        class="room-panel col"
+        :class="{ 'hidden-mobile': !selectedRoomId && $q.screen.lt.md }"
+      >
+        <ChatRoom
+          :room-id="selectedRoomId"
+          :room="selectedRoom"
+          @back="selectedRoomId = null"
+        />
       </div>
-    </q-scroll-area>
 
-    <!-- Input -->
-    <q-form class="row q-mt-sm q-gutter-sm" @submit.prevent="send">
-      <q-input
-        v-model="draft"
-        outlined
-        dense
-        autogrow
-        placeholder="Type a message…"
-        class="col"
-        @keydown.enter.exact.prevent="send"
-      />
-      <q-btn
-        type="submit"
-        color="primary"
-        icon="send"
-        :disable="!draft.trim()"
-        unelevated
-        round
-      />
-    </q-form>
-
+    </div>
   </q-page>
 </template>
 
 <script setup>
-import { ref, nextTick } from 'vue'
-import { useAuthStore } from '../stores/auth.js'
+import { ref, computed } from 'vue'
+import { useQuasar } from 'quasar'
+import ChatRoomList from '../components/chat/RoomList.vue'
+import ChatRoom from '../components/chat/Room.vue'
 
-const auth       = useAuthStore()
-const draft      = ref('')
-const scrollArea = ref(null)
-const messages   = ref([])
+const $q             = useQuasar()
+const selectedRoomId = ref(null)
+const roomListRef    = ref(null)
 
-function scrollToBottom() {
-  nextTick(() => {
-    scrollArea.value?.setScrollPercentage('vertical', 1)
-  })
-}
-
-function send() {
-  const text = draft.value.trim()
-  if (!text) return
-
-  messages.value.push({
-    text,
-    self:      true,
-    username:  auth.user?.username,
-    timestamp: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
-  })
-
-  draft.value = ''
-  scrollToBottom()
-}
+const selectedRoom = computed(() => {
+  const rooms = roomListRef.value?.rooms ?? []  // exposed if needed
+  return rooms.find((r) => r.id === selectedRoomId.value) ?? null
+})
 </script>
 
 <style scoped>
-.message-area {
-  background: rgba(255, 255, 255, 0.04);
-  border: 1px solid rgba(255, 255, 255, 0.08);
-  min-height: 200px;
+.chat-page {
+  height: calc(100vh - 50px);
+  overflow: hidden;
+}
+
+.chat-layout {
+  height: 100%;
+}
+
+.room-list-panel {
+  width: 280px;
+  min-width: 280px;
+  display: flex;
+  flex-direction: column;
+}
+
+@media (max-width: 767px) {
+  .room-list-panel {
+    width: 100%;
+    min-width: unset;
+  }
+
+  .hidden-mobile {
+    display: none !important;
+  }
 }
 </style>
+
