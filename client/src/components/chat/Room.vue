@@ -29,7 +29,7 @@
       <q-separator />
 
       <!-- Messages -->
-      <q-scroll-area ref="scrollArea" class="col q-pa-md">
+      <q-scroll-area ref="scrollArea" class="col q-pa-md" style="min-height: 0">
         <div v-if="loadingMsgs" class="column items-center q-py-lg text-grey">
           <q-spinner size="24px" />
         </div>

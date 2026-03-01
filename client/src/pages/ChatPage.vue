@@ -63,10 +63,14 @@ const selectedRoom = computed(() => {
   display: flex;
   flex-direction: column;
   overflow: hidden;
+  height: 100%;
 }
 
 .room-panel {
   overflow: hidden;
+  display: flex;
+  flex-direction: column;
+  height: 100%;
 }
 
 @media (max-width: 767px) {
