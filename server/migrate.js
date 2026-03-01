@@ -18,6 +18,7 @@ const migrations = [
   '006_create_chats.sql',
   '007_seed_dm_chat.sql',
   '008_seed_dummy_conversations.sql',
+  '009_seed_trio_chat.sql',
 ]
 
 const conn = await createConnection({
