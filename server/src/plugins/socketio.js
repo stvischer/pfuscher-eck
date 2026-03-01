@@ -43,22 +43,26 @@ async function socketio(fastify) {
       fastify.log.info(`Socket ${socket.id} left room ${roomId}`)
     })
 
-    socket.on('message:send', async ({ roomId, content }) => {
-      if (!roomId || !content?.trim()) return
+    socket.on('message:send', async ({ roomId, content, attachment }) => {
+      const hasText       = content?.trim()
+      const hasAttachment = Array.isArray(attachment) && attachment.length > 0
+      if (!roomId || (!hasText && !hasAttachment)) return
 
       const conn = await fastify.db.getConnection()
       try {
+        const attachmentJson = hasAttachment ? JSON.stringify(attachment) : null
         const result = await conn.query(
-          'INSERT INTO chat_messages (chat_id, user_id, content) VALUES (?, ?, ?)',
-          [roomId, socket.data.user?.id, content.trim()],
+          'INSERT INTO chat_messages (chat_id, user_id, content, attachment) VALUES (?, ?, ?, ?)',
+          [roomId, socket.data.user?.id, hasText ? content.trim() : '', attachmentJson],
         )
         const [msg] = await conn.query(
-          `SELECT m.id, m.chat_id AS chatId, m.user_id, m.content, m.created_at,
+          `SELECT m.id, m.chat_id AS chatId, m.user_id, m.content, m.attachment, m.created_at,
                   u.username
            FROM chat_messages m JOIN users u ON u.id = m.user_id
            WHERE m.id = ?`,
           [result.insertId],
         )
+        // attachment is returned as parsed JSON by mariadb driver
         io.to(roomId).emit('message:new', msg)
       } catch (err) {
         fastify.log.error(err, 'message:send failed')

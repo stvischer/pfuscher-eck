@@ -51,6 +51,7 @@
                 :content="msg.content"
                 :stamp="formatStamp(msg.created_at)"
                 :sent="Number(msg.user_id) === auth.user?.id"
+                :attachment="msg.attachment || []"
               />
               <div ref="bottomAnchor" />
             </template>
@@ -163,9 +164,9 @@ onMounted(() => {
   socket.on('message:new', onMessageNew)
 })
 
-function send(content) {
-  if (!content || !props.roomId) return
-  socket.emit('message:send', { roomId: props.roomId, content })
+function send({ content, attachment = [] }) {
+  if ((!content?.trim() && !attachment?.length) || !props.roomId) return
+  socket.emit('message:send', { roomId: props.roomId, content, attachment })
 }
 
 onUnmounted(() => {

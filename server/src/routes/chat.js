@@ -33,7 +33,7 @@ async function chatRoutes(fastify) {
       if (!membership) return reply.code(403).send({ message: 'Not a member of this room' })
 
       const rows = await conn.query(
-        `SELECT m.id, m.chat_id, m.user_id, m.content, m.created_at,
+        `SELECT m.id, m.chat_id, m.user_id, m.content, m.attachment, m.created_at,
                 u.username
          FROM chat_messages m
          JOIN users u ON u.id = m.user_id
