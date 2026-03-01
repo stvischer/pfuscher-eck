@@ -9,7 +9,7 @@
 
     <template v-else>
       <!-- Room header -->
-      <div class="room-header q-pa-sm q-px-md row items-center no-wrap">
+      <div class="room-header q-px-md row items-center no-wrap">
         <q-btn
           v-if="$q.screen.lt.md"
           flat round dense
@@ -17,41 +17,46 @@
           class="q-mr-sm"
           @click="$emit('back')"
         />
-        <q-avatar :color="room?.type === 'direct' ? 'indigo' : 'teal'" text-color="white" size="36px" class="q-mr-sm">
-          <q-icon :name="room?.type === 'direct' ? 'person' : 'group'" />
+        <q-avatar :color="room?.type === 'direct' ? 'indigo' : 'teal'" text-color="white" size="38px" class="q-mr-sm">
+          <q-icon :name="room?.type === 'direct' ? 'person' : 'group'" size="20px" />
         </q-avatar>
         <div class="col">
           <div class="text-subtitle2 text-weight-bold">{{ roomTitle }}</div>
-          <div class="text-caption text-grey-5">{{ room?.visibility }} · {{ room?.type }}</div>
+          <div class="text-caption text-grey-5">
+            <q-icon :name="room?.visibility === 'public' ? 'public' : 'lock'" size="11px" class="q-mr-xs" />
+            {{ room?.visibility }} · {{ room?.type }}
+          </div>
         </div>
       </div>
 
       <q-separator />
 
       <!-- Messages -->
-      <q-scroll-area ref="scrollArea" class="col q-pa-md" style="min-height: 0">
-        <div v-if="loadingMsgs" class="column items-center q-py-lg text-grey">
-          <q-spinner size="24px" />
-        </div>
-        <template v-else>
-          <div v-if="messages.length === 0" class="text-grey text-center q-py-lg text-caption">
-            No messages yet. Say something!
+      <q-scroll-area ref="scrollArea" class="col message-area" style="min-height: 0">
+        <div class="q-pa-md">
+          <div v-if="loadingMsgs" class="column items-center q-py-xl text-grey">
+            <q-spinner size="28px" color="primary" />
+            <div class="text-caption q-mt-sm">Loading messages…</div>
           </div>
-          <ChatMessage
-            v-for="msg in messages"
-            :key="msg.id"
-            :username="msg.username"
-            :content="msg.content"
-            :stamp="formatStamp(msg.created_at)"
-            :sent="msg.user_id === auth.user?.id"
-          />
-        </template>
+          <template v-else>
+            <div v-if="messages.length === 0" class="column items-center q-py-xl text-grey-5">
+              <q-icon name="chat_bubble_outline" size="40px" class="q-mb-sm" />
+              <div class="text-caption">No messages yet. Say something!</div>
+            </div>
+            <ChatMessage
+              v-for="msg in messages"
+              :key="msg.id"
+              :username="msg.username"
+              :content="msg.content"
+              :stamp="formatStamp(msg.created_at)"
+              :sent="msg.user_id === auth.user?.id"
+            />
+          </template>
+        </div>
       </q-scroll-area>
 
-      <q-separator />
-
-      <!-- Input -->
-      <div class="q-pa-sm row q-gutter-sm items-end">
+      <!-- Input bar -->
+      <div class="input-bar row items-end q-pa-sm q-gutter-xs">
         <q-input
           v-model="draft"
           outlined
@@ -59,6 +64,7 @@
           autogrow
           placeholder="Type a message…"
           class="col"
+          bg-color="blue-grey-10"
           input-style="max-height: 120px; overflow-y: auto"
           @keydown.enter.exact.prevent="send"
         />
@@ -67,6 +73,7 @@
           icon="send"
           unelevated
           round
+          size="md"
           :disable="!draft.trim()"
           @click="send"
         />
@@ -160,5 +167,15 @@ onUnmounted(() => {
 <style scoped>
 .room-header {
   min-height: 56px;
+  background: rgba(255, 255, 255, 0.03);
+}
+
+.message-area {
+  background: transparent;
+}
+
+.input-bar {
+  background: rgba(255, 255, 255, 0.04);
+  border-top: 1px solid rgba(255, 255, 255, 0.08);
 }
 </style>

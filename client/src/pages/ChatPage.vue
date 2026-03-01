@@ -1,5 +1,5 @@
 <template>
-  <q-page class="chat-page">
+  <q-page class="chat-page" style="display: flex; flex-direction: column">
     <div class="chat-layout fit row">
 
       <!-- Room list panel -->
@@ -49,7 +49,7 @@ const selectedRoom = computed(() => {
 
 <style scoped>
 .chat-page {
-  height: calc(100vh - 50px);
+  flex: 1;
   overflow: hidden;
 }
 
