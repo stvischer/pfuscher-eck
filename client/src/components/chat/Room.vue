@@ -56,28 +56,7 @@
       </q-scroll-area>
 
       <!-- Input bar -->
-      <div class="input-bar row items-end q-pa-sm q-gutter-xs">
-        <q-input
-          v-model="draft"
-          outlined
-          dense
-          autogrow
-          placeholder="Type a message…"
-          class="col"
-          bg-color="blue-grey-10"
-          input-style="max-height: 120px; overflow-y: auto"
-          @keydown.enter.exact.prevent="send"
-        />
-        <q-btn
-          color="primary"
-          icon="send"
-          unelevated
-          round
-          size="md"
-          :disable="!draft.trim()"
-          @click="send"
-        />
-      </div>
+      <ChatMessageInput @send="send" />
     </template>
 
   </div>
@@ -87,6 +66,7 @@
 import { ref, computed, watch, nextTick, onMounted, onUnmounted } from 'vue'
 import { useQuasar } from 'quasar'
 import ChatMessage from './Message.vue'
+import ChatMessageInput from './MessageInput.vue'
 import { api } from '../../composables/useApi.js'
 import { useSocket } from '../../composables/useSocket.js'
 import { useAuthStore } from '../../stores/auth.js'
@@ -101,9 +81,8 @@ const $q         = useQuasar()
 const auth       = useAuthStore()
 const { socket } = useSocket()
 
-const messages  = ref([])
-const draft     = ref('')
-const scrollArea = ref(null)
+const messages    = ref([])
+const scrollArea  = ref(null)
 const loadingMsgs = ref(false)
 
 const roomTitle = computed(() =>
@@ -160,12 +139,9 @@ onMounted(() => {
   socket.on('message:new', onMessageNew)
 })
 
-function send() {
-  const content = draft.value.trim()
+function send(content) {
   if (!content || !props.roomId) return
-
   socket.emit('message:send', { roomId: props.roomId, content })
-  draft.value = ''
 }
 
 onUnmounted(() => {
@@ -183,10 +159,5 @@ onUnmounted(() => {
 
 .message-area {
   background: transparent;
-}
-
-.input-bar {
-  background: rgba(255, 255, 255, 0.04);
-  border-top: 1px solid rgba(255, 255, 255, 0.08);
 }
 </style>
