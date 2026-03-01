@@ -10,7 +10,7 @@ VALUES (@general_id, 'General', 'group', 'public');
 INSERT INTO chat_members (chat_id, user_id)
 SELECT @general_id, id FROM users WHERE username IN ('admin', 'user', 'chat1', 'chat2');
 
-INSERT INTO messages (chat_id, user_id, content, created_at)
+INSERT INTO chat_messages (chat_id, user_id, content, created_at)
 SELECT @general_id, id, 'Hey everyone, welcome to General! 👋', NOW() - INTERVAL 2 HOUR
 FROM users WHERE username = 'admin'
 UNION ALL
@@ -56,7 +56,7 @@ VALUES (@dm_admin_user, 'direct', 'private');
 INSERT INTO chat_members (chat_id, user_id)
 SELECT @dm_admin_user, id FROM users WHERE username IN ('admin', 'user');
 
-INSERT INTO messages (chat_id, user_id, content, created_at)
+INSERT INTO chat_messages (chat_id, user_id, content, created_at)
 SELECT @dm_admin_user, id, 'Hey, can you review my PR when you get a chance?', NOW() - INTERVAL 3 HOUR
 FROM users WHERE username = 'user'
 UNION ALL

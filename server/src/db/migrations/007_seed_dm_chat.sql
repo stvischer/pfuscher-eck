@@ -1,5 +1,5 @@
 -- Seed a private DM chat room between chat1 and chat2
-DELETE FROM messages;
+DELETE FROM chat_messages;
 DELETE FROM chat_members;
 DELETE FROM chat_rooms;
 
@@ -11,7 +11,7 @@ INSERT INTO chat_members (chat_id, user_id)
 SELECT @chat_id, id FROM users WHERE username IN ('chat1', 'chat2');
 
 -- Seed messages in the conversation
-INSERT INTO messages (chat_id, user_id, content, created_at)
+INSERT INTO chat_messages (chat_id, user_id, content, created_at)
 SELECT @chat_id, id, 'Hey, are you up for some Pfuschen today?', NOW() - INTERVAL 20 MINUTE
 FROM users WHERE username = 'chat1'
 UNION ALL

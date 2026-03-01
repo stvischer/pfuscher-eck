@@ -1,8 +1,11 @@
 -- Drop everything that depends on messages/chats first (clean slate)
+SET FOREIGN_KEY_CHECKS = 0;
+DROP TABLE IF EXISTS chat_messages;
 DROP TABLE IF EXISTS messages;
 DROP TABLE IF EXISTS chat_members;
 DROP TABLE IF EXISTS chat_rooms;
 DROP TABLE IF EXISTS chats;
+SET FOREIGN_KEY_CHECKS = 1;
 
 CREATE TABLE chat_rooms (
   id         CHAR(36)     NOT NULL,
@@ -31,7 +34,7 @@ CREATE TABLE chat_members (
   CONSTRAINT fk_cm_user FOREIGN KEY (user_id)  REFERENCES users(id) ON DELETE CASCADE
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
-CREATE TABLE messages (
+CREATE TABLE chat_messages (
   id         INT UNSIGNED NOT NULL AUTO_INCREMENT,
   chat_id    CHAR(36)     NULL,
   user_id    INT UNSIGNED NOT NULL,
@@ -39,6 +42,6 @@ CREATE TABLE messages (
   created_at DATETIME     NOT NULL DEFAULT CURRENT_TIMESTAMP,
 
   PRIMARY KEY (id),
-  CONSTRAINT fk_messages_chat FOREIGN KEY (chat_id) REFERENCES chat_rooms(id) ON DELETE SET NULL,
-  CONSTRAINT fk_messages_user FOREIGN KEY (user_id)  REFERENCES users(id) ON DELETE CASCADE
+  CONSTRAINT fk_chat_messages_chat FOREIGN KEY (chat_id) REFERENCES chat_rooms(id) ON DELETE SET NULL,
+  CONSTRAINT fk_chat_messages_user FOREIGN KEY (user_id)  REFERENCES users(id) ON DELETE CASCADE
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;

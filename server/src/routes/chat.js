@@ -35,7 +35,7 @@ async function chatRoutes(fastify) {
       const rows = await conn.query(
         `SELECT m.id, m.chat_id, m.user_id, m.content, m.created_at,
                 u.username
-         FROM messages m
+         FROM chat_messages m
          JOIN users u ON u.id = m.user_id
          WHERE m.chat_id = ?
            ${before ? 'AND m.created_at < ?' : ''}

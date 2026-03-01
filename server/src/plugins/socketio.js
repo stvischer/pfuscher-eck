@@ -49,13 +49,13 @@ async function socketio(fastify) {
       const conn = await fastify.db.getConnection()
       try {
         const result = await conn.query(
-          'INSERT INTO messages (chat_id, user_id, content) VALUES (?, ?, ?)',
+          'INSERT INTO chat_messages (chat_id, user_id, content) VALUES (?, ?, ?)',
           [roomId, socket.data.user?.id, content.trim()],
         )
         const [msg] = await conn.query(
           `SELECT m.id, m.chat_id AS chatId, m.user_id, m.content, m.created_at,
                   u.username
-           FROM messages m JOIN users u ON u.id = m.user_id
+           FROM chat_messages m JOIN users u ON u.id = m.user_id
            WHERE m.id = ?`,
           [result.insertId],
         )
