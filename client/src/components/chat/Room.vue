@@ -31,29 +31,45 @@
 
       <q-separator />
 
-      <!-- Messages -->
-      <q-scroll-area ref="scrollArea" class="col message-area" style="min-height: 0">
-        <div class="q-pa-md">
-          <div v-if="loadingMsgs" class="column items-center q-py-xl text-grey">
-            <q-spinner size="28px" color="primary" />
-            <div class="text-caption q-mt-sm">Loading messages…</div>
-          </div>
-          <template v-else>
-            <div v-if="messages.length === 0" class="column items-center q-py-xl text-grey-5">
-              <q-icon name="chat_bubble_outline" size="40px" class="q-mb-sm" />
-              <div class="text-caption">No messages yet. Say something!</div>
+      <!-- Messages + scroll-to-bottom FAB -->
+      <div class="scroll-container col" style="min-height: 0; position: relative">
+        <q-scroll-area ref="scrollArea" class="fit message-area" @scroll="onScroll">
+          <div class="q-pa-md">
+            <div v-if="loadingMsgs" class="column items-center q-py-xl text-grey">
+              <q-spinner size="28px" color="primary" />
+              <div class="text-caption q-mt-sm">Loading messages…</div>
             </div>
-            <ChatMessage
-              v-for="msg in messages"
-              :key="msg.id"
-              :username="msg.username"
-              :content="msg.content"
-              :stamp="formatStamp(msg.created_at)"
-              :sent="Number(msg.user_id) === auth.user?.id"
-            />
-          </template>
-        </div>
-      </q-scroll-area>
+            <template v-else>
+              <div v-if="messages.length === 0" class="column items-center q-py-xl text-grey-5">
+                <q-icon name="chat_bubble_outline" size="40px" class="q-mb-sm" />
+                <div class="text-caption">No messages yet. Say something!</div>
+              </div>
+              <ChatMessage
+                v-for="msg in messages"
+                :key="msg.id"
+                :username="msg.username"
+                :content="msg.content"
+                :stamp="formatStamp(msg.created_at)"
+                :sent="Number(msg.user_id) === auth.user?.id"
+              />
+              <div ref="bottomAnchor" />
+            </template>
+          </div>
+        </q-scroll-area>
+
+        <transition name="fade">
+          <q-btn
+            v-if="showScrollBtn"
+            class="scroll-to-bottom-btn"
+            round
+            unelevated
+            color="primary"
+            icon="keyboard_double_arrow_down"
+            size="sm"
+            @click="scrollToBottom"
+          />
+        </transition>
+      </div>
 
       <!-- Input bar -->
       <ChatMessageInput @send="send" />
@@ -81,9 +97,16 @@ const $q         = useQuasar()
 const auth       = useAuthStore()
 const { socket } = useSocket()
 
-const messages    = ref([])
-const scrollArea  = ref(null)
-const loadingMsgs = ref(false)
+const messages     = ref([])
+const scrollArea   = ref(null)
+const bottomAnchor = ref(null)
+const loadingMsgs  = ref(false)
+const showScrollBtn = ref(false)
+
+function onScroll({ verticalPosition, verticalSize, verticalContainerSize }) {
+  const distFromBottom = verticalSize - verticalContainerSize - verticalPosition
+  showScrollBtn.value = distFromBottom > 80
+}
 
 const roomTitle = computed(() =>
   props.room?.name ?? (props.room?.type === 'direct' ? 'Direct Message' : 'Group Chat'),
@@ -95,7 +118,8 @@ function formatStamp(iso) {
 }
 
 function scrollToBottom() {
-  nextTick(() => scrollArea.value?.setScrollPercentage('vertical', 1))
+  showScrollBtn.value = false
+  nextTick(() => bottomAnchor.value?.scrollIntoView({ block: 'end' }))
 }
 
 async function loadMessages(id) {
@@ -103,11 +127,11 @@ async function loadMessages(id) {
   messages.value = []
   try {
     messages.value = await api.get(`/chat/rooms/${id}/messages`)
-    scrollToBottom()
   } catch {
     messages.value = []
   } finally {
     loadingMsgs.value = false
+    scrollToBottom()
   }
 }
 
@@ -159,5 +183,23 @@ onUnmounted(() => {
 
 .message-area {
   background: transparent;
+}
+
+.scroll-to-bottom-btn {
+  position: absolute;
+  bottom: 12px;
+  right: 16px;
+  opacity: 0.9;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.4);
+}
+
+.fade-enter-active,
+.fade-leave-active {
+  transition: opacity 0.15s ease, transform 0.15s ease;
+}
+.fade-enter-from,
+.fade-leave-to {
+  opacity: 0;
+  transform: translateY(6px);
 }
 </style>
