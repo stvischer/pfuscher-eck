@@ -19,12 +19,6 @@ const routes = [
     meta: { guestOnly: true },
   },
   {
-    path: '/register',
-    name: 'register',
-    component: () => import('../pages/RegisterPage.vue'),
-    meta: { guestOnly: true },
-  },
-  {
     path: '/settings',
     name: 'settings',
     component: () => import('../pages/UserSettingsPage.vue'),

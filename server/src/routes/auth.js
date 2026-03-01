@@ -351,7 +351,7 @@ export default async function authRoutes(fastify) {
         if (!rows[0]) return reply.code(404).send({ message: 'User not found' })
 
         const match = await bcrypt.compare(currentPassword, rows[0].password)
-        if (!match) return reply.code(401).send({ message: 'Current password is incorrect' })
+        if (!match) return reply.code(400).send({ message: 'Current password is incorrect' })
 
         const hash = await bcrypt.hash(newPassword, 12)
         await conn.query('UPDATE users SET password = ? WHERE id = ?', [hash, request.user.id])

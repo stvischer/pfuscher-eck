@@ -1,10 +1,11 @@
 <template>
-  <q-dialog :model-value="true" persistent transition-show="fade" transition-hide="fade">
+  <q-dialog :model-value="modelValue" persistent transition-show="fade" transition-hide="fade"
+    @update:model-value="$emit('update:modelValue', $event)">
     <q-card style="width: 360px; max-width: 95vw">
       <q-card-section class="row items-center q-pb-none">
         <div class="text-h6">Create account</div>
         <q-space />
-        <q-btn icon="close" flat round dense @click="router.push('/')" />
+        <q-btn icon="close" flat round dense @click="close" />
       </q-card-section>
 
       <q-card-section>
@@ -12,11 +13,12 @@
           {{ auth.error }}
         </q-banner>
 
-        <q-form @submit.prevent="submit">
+        <q-form @submit.prevent="submit" autocomplete="off">
           <q-input
             v-model="username"
             label="Username"
-            autocomplete="username"
+            :name="nonce + 'u'"
+            autocomplete="new-password"
             :rules="[val => !!val || 'Required', val => val.length >= 3 || 'Min 3 characters']"
             class="q-mb-sm"
             outlined
@@ -26,7 +28,8 @@
             v-model="email"
             label="Email"
             type="email"
-            autocomplete="email"
+            :name="nonce + 'e'"
+            autocomplete="new-password"
             :rules="[val => !!val || 'Required']"
             class="q-mb-sm"
             outlined
@@ -36,9 +39,12 @@
             v-model="password"
             label="Password"
             :type="showPw ? 'text' : 'password'"
+            :name="nonce + 'p'"
             autocomplete="new-password"
+            :input-attrs="pwReady ? {} : { readonly: '' }"
+            @focus="pwReady = true"
             :rules="[val => !!val || 'Required', val => val.length >= 8 || 'Min 8 characters']"
-            class="q-mb-md"
+            class="q-mb-xs"
             outlined
             dense
           >
@@ -50,6 +56,21 @@
               />
             </template>
           </q-input>
+          <PasswordStrength :password="password" class="q-mb-sm" />
+
+          <q-input
+            v-model="confirm"
+            label="Confirm password"
+            :type="showPw ? 'text' : 'password'"
+            :name="nonce + 'c'"
+            autocomplete="new-password"
+            :input-attrs="pwReady ? {} : { readonly: '' }"
+            @focus="pwReady = true"
+            :rules="[val => !!val || 'Required', val => val === password || 'Passwords do not match']"
+            class="q-mb-md"
+            outlined
+            dense
+          />
 
           <q-btn
             type="submit"
@@ -63,24 +84,49 @@
 
       <q-card-section class="text-center q-pt-none">
         <span class="text-caption">Already have an account? </span>
-        <router-link :to="{ name: 'login' }" class="text-primary">Login</router-link>
+        <a class="text-primary cursor-pointer" @click="close">Sign in</a>
       </q-card-section>
     </q-card>
   </q-dialog>
 </template>
 
 <script setup>
-import { ref } from 'vue'
+import { ref, watch } from 'vue'
 import { useRouter } from 'vue-router'
 import { useAuthStore } from '../stores/auth.js'
+import PasswordStrength from './shared/PasswordStrength.vue'
 
-const auth = useAuthStore()
+const props = defineProps({ modelValue: Boolean })
+const emit  = defineEmits(['update:modelValue'])
+
+const auth   = useAuthStore()
 const router = useRouter()
 
+const nonce    = ref(Math.random().toString(36).slice(2))
 const username = ref('')
 const email    = ref('')
 const password = ref('')
+const confirm  = ref('')
 const showPw   = ref(false)
+const pwReady  = ref(false)
+
+// Reset form whenever dialog opens
+watch(() => props.modelValue, (open) => {
+  if (open) {
+    nonce.value    = Math.random().toString(36).slice(2)
+    username.value = ''
+    email.value    = ''
+    password.value = ''
+    confirm.value  = ''
+    showPw.value   = false
+    pwReady.value  = false
+    auth.clearError()
+  }
+})
+
+function close() {
+  emit('update:modelValue', false)
+}
 
 async function submit() {
   auth.clearError()
