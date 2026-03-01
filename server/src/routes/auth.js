@@ -206,13 +206,157 @@ export default async function authRoutes(fastify) {
       const conn = await fastify.db.getConnection()
       try {
         const rows = await conn.query(
-          'SELECT id, username, email, role, created_at FROM users WHERE id = ? LIMIT 1',
+          'SELECT id, username, display_name, email, role, bio, phone, street, city, state, postal_code, country, skills, created_at FROM users WHERE id = ? LIMIT 1',
           [request.user.id],
         )
         if (!rows[0]) return reply.code(404).send({ message: 'User not found' })
 
         const u = rows[0]
-        reply.send({ id: Number(u.id), username: u.username, email: u.email, role: u.role, createdAt: u.created_at })
+        reply.send({
+          id:          Number(u.id),
+          username:    u.username,
+          displayName: u.display_name ?? null,
+          email:       u.email,
+          role:        u.role,
+          bio:         u.bio         ?? null,
+          phone:       u.phone       ?? null,
+          street:      u.street      ?? null,
+          city:        u.city        ?? null,
+          state:       u.state       ?? null,
+          postalCode:  u.postal_code ?? null,
+          country:     u.country     ?? null,
+          skills:      u.skills      ? (typeof u.skills === 'string' ? JSON.parse(u.skills) : u.skills) : [],
+          createdAt:   u.created_at,
+        })
+      } finally {
+        conn.release()
+      }
+    },
+  )
+
+  // ── Update profile (username / email) ─────────────────────────────────────
+  fastify.patch(
+    '/api/auth/me',
+    {
+      preHandler: [fastify.authenticate],
+      schema: {
+        body: {
+          type: 'object',
+          properties: {
+            username:    { type: 'string', minLength: 3, maxLength: 50 },
+            displayName: { type: 'string', maxLength: 100 },
+            email:       { type: 'string', format: 'email' },
+            bio:         { type: 'string', maxLength: 1000 },
+            phone:       { type: 'string', maxLength: 30 },
+            street:      { type: 'string', maxLength: 255 },
+            city:        { type: 'string', maxLength: 100 },
+            state:       { type: 'string', maxLength: 100 },
+            postalCode:  { type: 'string', maxLength: 20 },
+            country:     { type: 'string', maxLength: 100 },
+            skills:      { type: 'array', items: { type: 'string' } },
+          },
+        },
+      },
+    },
+    async (request, reply) => {
+      const { username, displayName, email, bio, phone, street, city, state, postalCode, country, skills } = request.body ?? {}
+      if (!username && displayName === undefined && !email && bio === undefined && phone === undefined &&
+          street === undefined && city === undefined && state === undefined &&
+          postalCode === undefined && country === undefined && skills === undefined) {
+        return reply.code(400).send({ message: 'Nothing to update' })
+      }
+
+      const conn = await fastify.db.getConnection()
+      try {
+        // Check uniqueness for username / email
+        if (username || email) {
+          const conflict = await conn.query(
+            'SELECT id FROM users WHERE (username = ? OR email = ?) AND id != ? LIMIT 1',
+            [username ?? '', email ?? '', request.user.id],
+          )
+          if (conflict.length > 0) {
+            return reply.code(409).send({ message: 'Username or email already in use' })
+          }
+        }
+
+        const fields = []
+        const values = []
+        if (username    !== undefined) { fields.push('username = ?');     values.push(username) }
+        if (displayName !== undefined) { fields.push('display_name = ?'); values.push(displayName || null) }
+        if (email       !== undefined) { fields.push('email = ?');        values.push(email) }
+        if (bio         !== undefined) { fields.push('bio = ?');          values.push(bio || null) }
+        if (phone       !== undefined) { fields.push('phone = ?');        values.push(phone || null) }
+        if (street      !== undefined) { fields.push('street = ?');       values.push(street || null) }
+        if (city        !== undefined) { fields.push('city = ?');         values.push(city || null) }
+        if (state       !== undefined) { fields.push('state = ?');        values.push(state || null) }
+        if (postalCode  !== undefined) { fields.push('postal_code = ?');  values.push(postalCode || null) }
+        if (country     !== undefined) { fields.push('country = ?');      values.push(country || null) }
+        if (skills      !== undefined) { fields.push('skills = ?');       values.push(JSON.stringify(skills)) }
+        values.push(request.user.id)
+
+        await conn.query(`UPDATE users SET ${fields.join(', ')} WHERE id = ?`, values)
+
+        const rows = await conn.query(
+          'SELECT id, username, display_name, email, role, bio, phone, street, city, state, postal_code, country, skills, created_at FROM users WHERE id = ? LIMIT 1',
+          [request.user.id],
+        )
+        const u = rows[0]
+        reply.send({
+          id:          Number(u.id),
+          username:    u.username,
+          displayName: u.display_name ?? null,
+          email:       u.email,
+          role:        u.role,
+          bio:         u.bio         ?? null,
+          phone:       u.phone       ?? null,
+          street:      u.street      ?? null,
+          city:        u.city        ?? null,
+          state:       u.state       ?? null,
+          postalCode:  u.postal_code ?? null,
+          country:     u.country     ?? null,
+          skills:      u.skills      ? (typeof u.skills === 'string' ? JSON.parse(u.skills) : u.skills) : [],
+          createdAt:   u.created_at,
+        })
+      } finally {
+        conn.release()
+      }
+    },
+  )
+
+  // ── Change password ───────────────────────────────────────────────────────
+  fastify.post(
+    '/api/auth/change-password',
+    {
+      preHandler: [fastify.authenticate],
+      schema: {
+        body: {
+          type: 'object',
+          required: ['currentPassword', 'newPassword'],
+          properties: {
+            currentPassword: { type: 'string' },
+            newPassword:     { type: 'string', minLength: 8 },
+          },
+        },
+      },
+    },
+    async (request, reply) => {
+      const { currentPassword, newPassword } = request.body
+
+      const conn = await fastify.db.getConnection()
+      try {
+        const rows = await conn.query(
+          'SELECT password FROM users WHERE id = ? LIMIT 1',
+          [request.user.id],
+        )
+        if (!rows[0]) return reply.code(404).send({ message: 'User not found' })
+
+        const match = await bcrypt.compare(currentPassword, rows[0].password)
+        if (!match) return reply.code(401).send({ message: 'Current password is incorrect' })
+
+        const hash = await bcrypt.hash(newPassword, 12)
+        await conn.query('UPDATE users SET password = ? WHERE id = ?', [hash, request.user.id])
+
+        reply.send({ message: 'Password updated' })
       } finally {
         conn.release()
       }

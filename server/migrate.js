@@ -22,6 +22,7 @@ const migrations = [
   '010_add_attachment.sql',
   '011_add_reply_to.sql',
   '012_create_reactions.sql',
+  '013_extend_user_profile.sql',
 ]
 
 const conn = await createConnection({

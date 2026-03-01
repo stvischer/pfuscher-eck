@@ -20,6 +20,14 @@
                 </q-item-section>
               </q-item>
               <q-separator />
+              <q-item v-close-popup clickable :to="{ name: 'settings' }">
+                <q-item-section avatar>
+                  <q-icon name="manage_accounts" />
+                </q-item-section>
+                <q-item-section>
+                  <q-item-label>Settings</q-item-label>
+                </q-item-section>
+              </q-item>
               <q-item v-close-popup clickable @click="logout">
                 <q-item-section avatar>
                   <q-icon name="logout" color="negative" />

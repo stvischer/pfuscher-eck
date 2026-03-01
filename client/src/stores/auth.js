@@ -68,6 +68,33 @@ export const useAuthStore = defineStore('auth', () => {
     disconnect()
   }
 
+  async function updateProfile(fields) {
+    loading.value = true
+    error.value   = null
+    try {
+      const updated = await api.patch('/auth/me', fields)
+      user.value = updated
+    } catch (err) {
+      error.value = err.message
+      throw err
+    } finally {
+      loading.value = false
+    }
+  }
+
+  async function changePassword(currentPassword, newPassword) {
+    loading.value = true
+    error.value   = null
+    try {
+      await api.post('/auth/change-password', { currentPassword, newPassword })
+    } catch (err) {
+      error.value = err.message
+      throw err
+    } finally {
+      loading.value = false
+    }
+  }
+
   return {
     user,
     loading,
@@ -79,5 +106,7 @@ export const useAuthStore = defineStore('auth', () => {
     login,
     register,
     logout,
+    updateProfile,
+    changePassword,
   }
 })

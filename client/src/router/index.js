@@ -25,6 +25,12 @@ const routes = [
     meta: { guestOnly: true },
   },
   {
+    path: '/settings',
+    name: 'settings',
+    component: () => import('../pages/UserSettingsPage.vue'),
+    meta: { requiresAuth: true },
+  },
+  {
     path: '/:pathMatch(.*)*',
     redirect: '/',
   },
@@ -47,6 +53,10 @@ router.beforeEach(async (to) => {
 
   if (to.meta.guestOnly && auth.isAuthenticated) {
     return { name: 'home' }
+  }
+
+  if (to.meta.requiresAuth && !auth.isAuthenticated) {
+    return { name: 'login' }
   }
 })
 
