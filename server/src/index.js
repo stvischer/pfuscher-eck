@@ -4,6 +4,7 @@ import fastifyCors from '@fastify/cors'
 import fastifyRedis from '@fastify/redis'
 import { createPool } from 'mariadb'
 import { Server as SocketIOServer } from 'socket.io'
+import { randomUUID } from 'crypto'
 import authPlugin from './plugins/auth.js'
 import authRoutes from './routes/auth.js'
 
@@ -84,10 +85,16 @@ io.use((socket, next) => {
 })
 
 io.on('connection', (socket) => {
-  fastify.log.info(`Socket connected: ${socket.id} (user ${socket.data.user?.id})`)
+  const uuid = randomUUID()
+  socket.data.uuid = uuid
+
+  fastify.log.info(`Socket connected: ${socket.id} uuid=${uuid} user=${socket.data.user?.id}`)
+
+  // Send the UUID back so the client can identify itself
+  socket.emit('socket:uuid', uuid)
 
   socket.on('disconnect', () => {
-    fastify.log.info(`Socket disconnected: ${socket.id}`)
+    fastify.log.info(`Socket disconnected: ${socket.id} uuid=${socket.data.uuid}`)
   })
 })
 

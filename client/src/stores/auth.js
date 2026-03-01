@@ -2,11 +2,13 @@ import { defineStore } from 'pinia'
 import { ref, computed } from 'vue'
 import { api } from '../composables/useApi.js'
 import { tokenStorage } from '../composables/tokenStorage.js'
+import { useSocket } from '../composables/useSocket.js'
 
 export const useAuthStore = defineStore('auth', () => {
   const user    = ref(null)
   const loading = ref(false)
   const error   = ref(null)
+  const { connect, disconnect } = useSocket()
 
   const isAuthenticated = computed(() => user.value !== null)
   const isAdmin         = computed(() => user.value?.role === 'admin')
@@ -19,6 +21,7 @@ export const useAuthStore = defineStore('auth', () => {
     if (!tokenStorage.getAccess()) return
     try {
       user.value = await api.get('/auth/me')
+      connect()
     } catch {
       user.value = null
       tokenStorage.clear()
@@ -32,6 +35,7 @@ export const useAuthStore = defineStore('auth', () => {
       const res = await api.post('/auth/login', { email, password })
       tokenStorage.save(res.accessToken, res.refreshToken, remember)
       user.value = res.user
+      connect()
     } catch (err) {
       error.value = err.message
       throw err
@@ -47,6 +51,7 @@ export const useAuthStore = defineStore('auth', () => {
       const res = await api.post('/auth/register', { username, email, password })
       tokenStorage.save(res.accessToken, res.refreshToken, false)
       user.value = res.user
+      connect()
     } catch (err) {
       error.value = err.message
       throw err
@@ -60,6 +65,7 @@ export const useAuthStore = defineStore('auth', () => {
     await api.post('/auth/logout', { refreshToken }).catch(() => {})
     tokenStorage.clear()
     user.value = null
+    disconnect()
   }
 
   return {
