@@ -30,6 +30,8 @@ const migrations = [
   '018_add_lat_lon_to_users.sql',
   '019_create_user_addresses.sql',
   '020_add_radius_to_user_addresses.sql',
+  '021_create_cnf_countries.sql',
+  '022_seed_cnf_countries.sql',
 ]
 
 const conn = await createConnection({

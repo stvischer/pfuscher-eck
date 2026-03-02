@@ -1,4 +1,6 @@
+SET FOREIGN_KEY_CHECKS = 0;
 TRUNCATE cnf_skills;
+SET FOREIGN_KEY_CHECKS = 1;
 
 INSERT INTO cnf_skills (id, name, parent_id, slug) VALUES
 (1, 'Elektrotechnik & Energie', NULL, 'elektro'),
