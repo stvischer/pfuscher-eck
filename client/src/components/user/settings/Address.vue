@@ -118,6 +118,7 @@ import markerIcon2x from 'leaflet/dist/images/marker-icon-2x.png'
 import markerIcon   from 'leaflet/dist/images/marker-icon.png'
 import markerShadow from 'leaflet/dist/images/marker-shadow.png'
 import { useAuthStore } from '../../../stores/auth.js'
+import { useAppStore } from '../../../stores/app.js'
 
 // Fix Leaflet default marker icon paths broken by bundlers
 delete L.Icon.Default.prototype._getIconUrl
@@ -125,6 +126,7 @@ L.Icon.Default.mergeOptions({ iconUrl: markerIcon, iconRetinaUrl: markerIcon2x, 
 
 const $q   = useQuasar()
 const auth = useAuthStore()
+const app  = useAppStore()
 
 const apiKey = import.meta.env.VITE_GEOAPIFY_API_KEY ?? ''
 
@@ -161,13 +163,14 @@ onMounted(() => {
     if (!feature) return
     const p = feature.properties
     applyResult({
-      street:     [p.housenumber, p.street].filter(Boolean).join(' '),
-      postalCode: p.postcode ?? '',
-      city:       p.city ?? p.town ?? p.village ?? '',
-      state:      p.state ?? p.county ?? '',
-      country:    p.country ?? '',
-      lat:        p.lat ?? null,
-      lon:        p.lon ?? null,
+      street:      [p.housenumber, p.street].filter(Boolean).join(' '),
+      postalCode:  p.postcode ?? '',
+      city:        p.city ?? p.town ?? p.village ?? '',
+      state:       p.state ?? p.county ?? '',
+      country:     p.country ?? '',
+      countryCode: p.country_code ?? '',
+      lat:         p.lat ?? null,
+      lon:         p.lon ?? null,
     })
   })
 })
@@ -252,14 +255,15 @@ async function reverseGeocode(lat, lon) {
     const p    = data.features?.[0]?.properties
     if (!p) throw new Error('No result')
     mapPreview.value = {
-      label:      p.formatted ?? '',
-      street:     [p.housenumber, p.street].filter(Boolean).join(' '),
-      postalCode: p.postcode  ?? '',
-      city:       p.city ?? p.town ?? p.village ?? '',
-      state:      p.state ?? p.county ?? '',
-      country:    p.country ?? '',
-      lat:        p.lat  ?? lat,
-      lon:        p.lon  ?? lon,
+      label:       p.formatted ?? '',
+      street:      [p.housenumber, p.street].filter(Boolean).join(' '),
+      postalCode:  p.postcode  ?? '',
+      city:        p.city ?? p.town ?? p.village ?? '',
+      state:       p.state ?? p.county ?? '',
+      country:     p.country ?? '',
+      countryCode: p.country_code ?? '',
+      lat:         p.lat  ?? lat,
+      lon:         p.lon  ?? lon,
     }
   } catch {
     $q.notify({ type: 'negative', message: 'Could not look up address', position: 'top' })
@@ -271,13 +275,14 @@ async function reverseGeocode(lat, lon) {
 function confirmMapSelection() {
   if (!mapPreview.value) return
   applyResult({
-    street:     mapPreview.value.street     ?? '',
-    postalCode: mapPreview.value.postalCode ?? '',
-    city:       mapPreview.value.city       ?? '',
-    state:      mapPreview.value.state      ?? '',
-    country:    mapPreview.value.country    ?? '',
-    lat:        mapPreview.value.lat        ?? null,
-    lon:        mapPreview.value.lon        ?? null,
+    street:      mapPreview.value.street      ?? '',
+    postalCode:  mapPreview.value.postalCode  ?? '',
+    city:        mapPreview.value.city        ?? '',
+    state:       mapPreview.value.state       ?? '',
+    country:     mapPreview.value.country     ?? '',
+    countryCode: mapPreview.value.countryCode ?? '',
+    lat:         mapPreview.value.lat         ?? null,
+    lon:         mapPreview.value.lon         ?? null,
   })
   mapOpen.value = false
 }
@@ -318,12 +323,15 @@ watch(mapOpen, (val) => { if (!val) destroyMap() })
 
 // ── Apply result ──────────────────────────────────────────────────────────
 
-function applyResult({ street, postalCode, city, state, country, lat = null, lon = null }) {
+function applyResult({ street, postalCode, city, state, country, countryCode = '', lat = null, lon = null }) {
   form.street     = street
   form.postalCode = postalCode
   form.city       = city
   form.state      = state
-  form.country    = ALL_COUNTRIES.includes(country) ? country : (country || form.country)
+  const storeMatch = countryCode
+    ? (app.countryByIso2[countryCode.toUpperCase()]?.name ?? null)
+    : app.countries.find(c => c.name === country)?.name ?? null
+  form.country    = storeMatch ?? country ?? form.country
   form.lat        = lat
   form.lon        = lon
 }
@@ -355,37 +363,17 @@ function resetSnapshot() {
 
 defineExpose({ getFields, isDirty, resetSnapshot })
 
-// ── Country filter ────────────────────────────────────────────────────────
+// ── Country filter (sourced from app store) ──────────────────────────────
 
-const ALL_COUNTRIES = [
-  'Afghanistan','Albania','Algeria','Andorra','Angola','Argentina','Armenia','Australia',
-  'Austria','Azerbaijan','Bahamas','Bahrain','Bangladesh','Belarus','Belgium','Belize',
-  'Benin','Bolivia','Bosnia and Herzegovina','Botswana','Brazil','Brunei','Bulgaria',
-  'Burkina Faso','Burundi','Cambodia','Cameroon','Canada','Chad','Chile','China',
-  'Colombia','Congo','Costa Rica','Croatia','Cuba','Cyprus','Czech Republic','Denmark',
-  'Dominican Republic','Ecuador','Egypt','El Salvador','Ethiopia','Finland','France',
-  'Georgia','Germany','Ghana','Greece','Guatemala','Haiti','Honduras','Hungary',
-  'Iceland','India','Indonesia','Iran','Iraq','Ireland','Israel','Italy','Jamaica',
-  'Japan','Jordan','Kazakhstan','Kenya','Kuwait','Laos','Latvia','Lebanon','Libya',
-  'Liechtenstein','Lithuania','Luxembourg','Madagascar','Malaysia','Mali','Malta',
-  'Mexico','Moldova','Monaco','Mongolia','Montenegro','Morocco','Mozambique','Myanmar',
-  'Nepal','Netherlands','New Zealand','Nicaragua','Niger','Nigeria','North Macedonia',
-  'Norway','Oman','Pakistan','Panama','Paraguay','Peru','Philippines','Poland',
-  'Portugal','Qatar','Romania','Russia','Rwanda','Saudi Arabia','Senegal','Serbia',
-  'Singapore','Slovakia','Slovenia','Somalia','South Africa','South Korea','Spain',
-  'Sri Lanka','Sudan','Sweden','Switzerland','Syria','Taiwan','Tanzania','Thailand',
-  'Tunisia','Turkey','Uganda','Ukraine','United Arab Emirates','United Kingdom',
-  'United States','Uruguay','Uzbekistan','Venezuela','Vietnam','Yemen','Zambia','Zimbabwe',
-]
-
-const countryOptions = ref(ALL_COUNTRIES.slice(0, 30))
+const countryOptions = ref([])
 
 function filterCountries(val, update) {
   update(() => {
+    const names = app.countries.map(c => c.name)
     const q = val.toLowerCase()
     countryOptions.value = q
-      ? ALL_COUNTRIES.filter(c => c.toLowerCase().includes(q))
-      : ALL_COUNTRIES.slice(0, 30)
+      ? names.filter(n => n.toLowerCase().includes(q))
+      : names.slice(0, 30)
   })
 }
 </script>
