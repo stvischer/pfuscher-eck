@@ -99,13 +99,15 @@
 </template>
 
 <script setup>
-import { ref } from 'vue'
+import { ref, onMounted } from 'vue'
 import { useRouter } from 'vue-router'
 import { useQuasar } from 'quasar'
 import { useAuthStore } from './stores/auth.js'
+import { useAppStore } from './stores/app.js'
 
 const $q     = useQuasar()
 const auth   = useAuthStore()
+const app    = useAppStore()
 const router = useRouter()
 
 const drawerOpen = ref(false)
@@ -114,6 +116,10 @@ const navLinks = [
   { name: 'home', label: 'Home', icon: 'home' },
   { name: 'chat', label: 'Chat', icon: 'chat' },
 ]
+
+onMounted(() => {
+  app.fetchConfig()
+})
 
 async function logout() {
   await auth.logout()
