@@ -129,7 +129,7 @@
 </template>
 
 <script setup>
-import { reactive, ref, watch } from 'vue'
+import { reactive, ref, watch, computed } from 'vue'
 import { useQuasar } from 'quasar'
 import { useAuthStore } from '../../../stores/auth.js'
 import PasswordStrength from '../../shared/PasswordStrength.vue'
@@ -147,26 +147,27 @@ const form = reactive({
   bio:         auth.user?.bio         ?? '',
 })
 
-const saving = ref(false)
+function _formSnap() {
+  return JSON.stringify({ username: form.username, displayName: form.displayName, email: form.email, phone: form.phone, bio: form.bio })
+}
+const snapshot = ref(_formSnap())
+const isDirty  = computed(() => _formSnap() !== snapshot.value)
 
-async function save() {
-  saving.value = true
-  try {
-    await auth.updateProfile({
-      username:    form.username,
-      displayName: form.displayName,
-      email:       form.email,
-      phone:       form.phone,
-      bio:         form.bio,
-    })
-  } catch (err) {
-    throw err
-  } finally {
-    saving.value = false
+function getFields() {
+  return {
+    username:    form.username,
+    displayName: form.displayName,
+    email:       form.email,
+    phone:       form.phone,
+    bio:         form.bio,
   }
 }
 
-defineExpose({ save })
+function resetSnapshot() {
+  snapshot.value = _formSnap()
+}
+
+defineExpose({ getFields, resetSnapshot, isDirty })
 
 // ── Change password dialog ────────────────────────────────────────────────
 

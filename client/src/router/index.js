@@ -45,6 +45,12 @@ router.beforeEach(async (to) => {
     await auth.fetchMe()
   }
 
+  // If token refresh failed and user is now unauthenticated, clear the checked flag
+  // so next load will retry — prevents being stuck
+  if (auth.user === null) {
+    sessionStorage.removeItem('auth_checked')
+  }
+
   if (to.meta.guestOnly && auth.isAuthenticated) {
     return { name: 'home' }
   }

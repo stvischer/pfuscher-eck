@@ -1,5 +1,5 @@
 <template>
-  <q-card flat bordered>
+  <q-card flat>
     <q-card-section>
       <div class="text-subtitle1 text-weight-medium q-mb-xs">Change Password</div>
       <div class="text-caption text-grey q-mb-md">Choose a strong password of at least 8 characters.</div>
@@ -45,16 +45,6 @@
           :rules="[v => v === form.next || 'Passwords do not match']"
         />
 
-        <div class="row justify-end q-pt-xs">
-          <q-btn
-            type="submit"
-            label="Update password"
-            color="primary"
-            unelevated
-            :loading="saving"
-            :disable="!form.current || !form.next || !form.confirm"
-          />
-        </div>
       </q-form>
     </q-card-section>
   </q-card>
@@ -62,10 +52,8 @@
 
 <script setup>
 import { reactive, ref } from 'vue'
-import { useQuasar } from 'quasar'
 import { useAuthStore } from '../../../stores/auth.js'
 
-const $q   = useQuasar()
 const auth = useAuthStore()
 
 const form        = reactive({ current: '', next: '', confirm: '' })
@@ -74,18 +62,22 @@ const showCurrent = ref(false)
 const showNext    = ref(false)
 
 async function save() {
-  if (form.next !== form.confirm) return
+  // skip silently if password fields are untouched
+  if (!form.current && !form.next && !form.confirm) return
+  if (form.next !== form.confirm) throw new Error('Passwords do not match')
+  if (!form.current) throw new Error('Current password is required')
   saving.value = true
   try {
     await auth.changePassword(form.current, form.next)
-    $q.notify({ type: 'positive', message: 'Password updated', position: 'top' })
     form.current = ''
     form.next    = ''
     form.confirm = ''
   } catch (err) {
-    $q.notify({ type: 'negative', message: err.message ?? 'Failed to update password', position: 'top' })
+    throw err
   } finally {
     saving.value = false
   }
 }
+
+defineExpose({ save })
 </script>

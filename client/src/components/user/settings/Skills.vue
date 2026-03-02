@@ -1,5 +1,5 @@
 <template>
-  <q-card flat bordered>
+  <q-card flat>
     <q-card-section>
       <div class="text-subtitle1 text-weight-medium q-mb-xs">Skills &amp; Expertise</div>
       <div class="text-caption text-grey q-mb-md">
@@ -28,20 +28,15 @@
           </template>
         </q-select>
 
-        <div class="row justify-end q-pt-xs">
-          <q-btn type="submit" label="Save" color="primary" unelevated :loading="saving" />
-        </div>
       </q-form>
     </q-card-section>
   </q-card>
 </template>
 
 <script setup>
-import { ref } from 'vue'
-import { useQuasar } from 'quasar'
+import { ref, computed } from 'vue'
 import { useAuthStore } from '../../../stores/auth.js'
 
-const $q   = useQuasar()
 const auth = useAuthStore()
 
 const ALL_SKILLS = [
@@ -55,7 +50,9 @@ const ALL_SKILLS = [
 
 const skills      = ref(Array.isArray(auth.user?.skills) ? [...auth.user.skills] : [])
 const suggestions = ref(ALL_SKILLS.slice(0, 20))
-const saving      = ref(false)
+function _snap() { return JSON.stringify([...skills.value].sort()) }
+const snapshot = ref(_snap())
+const isDirty  = computed(() => _snap() !== snapshot.value)
 
 function filterSkills(val, update) {
   update(() => {
@@ -75,15 +72,13 @@ function addSkill(val, done) {
   }
 }
 
-async function save() {
-  saving.value = true
-  try {
-    await auth.updateProfile({ skills: skills.value })
-    $q.notify({ type: 'positive', message: 'Saved', position: 'top' })
-  } catch (err) {
-    $q.notify({ type: 'negative', message: err.message ?? 'Save failed', position: 'top' })
-  } finally {
-    saving.value = false
-  }
+function getFields() {
+  return { skills: skills.value }
 }
+
+function resetSnapshot() {
+  snapshot.value = _snap()
+}
+
+defineExpose({ getFields, resetSnapshot, isDirty })
 </script>

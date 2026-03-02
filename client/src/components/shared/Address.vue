@@ -1,5 +1,5 @@
 <template>
-  <q-card flat bordered>
+  <q-card flat>
     <q-card-section>
       <div class="text-subtitle1 text-weight-medium q-mb-xs">Address</div>
       <div class="text-caption text-grey q-mb-md">Your physical or mailing address.</div>
@@ -99,7 +99,7 @@
 </template>
 
 <script setup>
-import { reactive, ref, watch, nextTick, onMounted, onBeforeUnmount } from 'vue'
+import { reactive, ref, watch, nextTick, onMounted, onBeforeUnmount, computed } from 'vue'
 import { useQuasar } from 'quasar'
 import { GeocoderAutocomplete } from '@geoapify/geocoder-autocomplete'
 import '@geoapify/geocoder-autocomplete/styles/minimal.css'
@@ -339,7 +339,29 @@ function applyResult({ street, postalCode, city, state, country, lat = null, lon
   form.lon        = lon
 }
 
-defineExpose({ form })
+function _formSnap() {
+  return JSON.stringify({ street: form.street, postalCode: form.postalCode, city: form.city, state: form.state, country: form.country, lat: form.lat, lon: form.lon })
+}
+const snapshot = ref(_formSnap())
+const isDirty  = computed(() => _formSnap() !== snapshot.value)
+
+function getFields() {
+  return {
+    street:     form.street,
+    postalCode: form.postalCode,
+    city:       form.city,
+    state:      form.state,
+    country:    form.country,
+    lat:        form.lat,
+    lon:        form.lon,
+  }
+}
+
+function resetSnapshot() {
+  snapshot.value = _formSnap()
+}
+
+defineExpose({ form, getFields, resetSnapshot, isDirty })
 
 // ── Country filter ────────────────────────────────────────────────────────
 
