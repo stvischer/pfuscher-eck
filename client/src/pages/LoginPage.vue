@@ -61,25 +61,29 @@
 
       <q-card-section class="text-center q-pt-none">
         <span class="text-caption">No account yet? </span>
-        <router-link :to="{ name: 'register' }" class="text-primary">Register</router-link>
+        <a class="text-primary cursor-pointer" @click="showRegister = true">Register</a>
       </q-card-section>
     </q-card>
   </q-dialog>
+
+  <RegisterDialog v-model="showRegister" />
 </template>
 
 <script setup>
 import { ref } from 'vue'
 import { useRouter, useRoute } from 'vue-router'
 import { useAuthStore } from '../stores/auth.js'
+import RegisterDialog from '../components/RegisterDialog.vue'
 
 const auth = useAuthStore()
 const router = useRouter()
 const route = useRoute()
 
-const email    = ref('')
-const password = ref('')
-const showPw   = ref(false)
-const remember = ref(false)
+const email        = ref('')
+const password     = ref('')
+const showPw       = ref(false)
+const remember     = ref(false)
+const showRegister = ref(false)
 
 function goHome() {
   router.push('/')

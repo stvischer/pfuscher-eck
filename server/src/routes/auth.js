@@ -198,21 +198,40 @@ export default async function authRoutes(fastify) {
     },
   )
 
-  // ── Me ────────────────────────────────────────────────────────────────────
-  fastify.get(
-    '/api/auth/me',
-    { preHandler: [fastify.authenticate] },
+  // ── Change password ───────────────────────────────────────────────────────
+  fastify.post(
+    '/api/auth/change-password',
+    {
+      preHandler: [fastify.authenticate],
+      schema: {
+        body: {
+          type: 'object',
+          required: ['currentPassword', 'newPassword'],
+          properties: {
+            currentPassword: { type: 'string' },
+            newPassword:     { type: 'string', minLength: 8 },
+          },
+        },
+      },
+    },
     async (request, reply) => {
+      const { currentPassword, newPassword } = request.body
+
       const conn = await fastify.db.getConnection()
       try {
         const rows = await conn.query(
-          'SELECT id, username, email, role, created_at FROM users WHERE id = ? LIMIT 1',
+          'SELECT password FROM users WHERE id = ? LIMIT 1',
           [request.user.id],
         )
         if (!rows[0]) return reply.code(404).send({ message: 'User not found' })
 
-        const u = rows[0]
-        reply.send({ id: Number(u.id), username: u.username, email: u.email, role: u.role, createdAt: u.created_at })
+        const match = await bcrypt.compare(currentPassword, rows[0].password)
+        if (!match) return reply.code(400).send({ message: 'Current password is incorrect' })
+
+        const hash = await bcrypt.hash(newPassword, 12)
+        await conn.query('UPDATE users SET password = ? WHERE id = ?', [hash, request.user.id])
+
+        reply.send({ message: 'Password updated' })
       } finally {
         conn.release()
       }

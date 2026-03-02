@@ -20,6 +20,14 @@
                 </q-item-section>
               </q-item>
               <q-separator />
+              <q-item v-close-popup clickable :to="{ name: 'settings' }">
+                <q-item-section avatar>
+                  <q-icon name="manage_accounts" />
+                </q-item-section>
+                <q-item-section>
+                  <q-item-label>Settings</q-item-label>
+                </q-item-section>
+              </q-item>
               <q-item v-close-popup clickable @click="logout">
                 <q-item-section avatar>
                   <q-icon name="logout" color="negative" />
@@ -91,13 +99,15 @@
 </template>
 
 <script setup>
-import { ref } from 'vue'
+import { ref, onMounted } from 'vue'
 import { useRouter } from 'vue-router'
 import { useQuasar } from 'quasar'
 import { useAuthStore } from './stores/auth.js'
+import { useAppStore } from './stores/app.js'
 
 const $q     = useQuasar()
 const auth   = useAuthStore()
+const app    = useAppStore()
 const router = useRouter()
 
 const drawerOpen = ref(false)
@@ -106,6 +116,10 @@ const navLinks = [
   { name: 'home', label: 'Home', icon: 'home' },
   { name: 'chat', label: 'Chat', icon: 'chat' },
 ]
+
+onMounted(() => {
+  app.fetchConfig()
+})
 
 async function logout() {
   await auth.logout()

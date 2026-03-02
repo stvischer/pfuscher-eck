@@ -19,10 +19,10 @@ const routes = [
     meta: { guestOnly: true },
   },
   {
-    path: '/register',
-    name: 'register',
-    component: () => import('../pages/RegisterPage.vue'),
-    meta: { guestOnly: true },
+    path: '/settings',
+    name: 'settings',
+    component: () => import('../pages/UserSettingsPage.vue'),
+    meta: { requiresAuth: true },
   },
   {
     path: '/:pathMatch(.*)*',
@@ -39,14 +39,18 @@ const router = createRouter({
 router.beforeEach(async (to) => {
   const auth = useAuthStore()
 
-  // Try to rehydrate session on first navigation
-  if (auth.user === null && !sessionStorage.getItem('auth_checked')) {
-    sessionStorage.setItem('auth_checked', '1')
+  // Rehydrate session on every navigation where user is not yet loaded.
+  // fetchMe() returns immediately when no token is stored, so this is cheap.
+  if (auth.user === null) {
     await auth.fetchMe()
   }
 
   if (to.meta.guestOnly && auth.isAuthenticated) {
     return { name: 'home' }
+  }
+
+  if (to.meta.requiresAuth && !auth.isAuthenticated) {
+    return { name: 'login' }
   }
 })
 

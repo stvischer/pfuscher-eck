@@ -47,6 +47,14 @@
           input-debounce="0"
           @filter="filterCountries"
         />
+        <q-input
+          v-model.number="form.radiusM"
+          label="Service radius (metres)"
+          type="number"
+          outlined dense
+          hint="Optional — how far from this address you are available"
+          :min="0"
+        />
       </div>
     </q-card-section>
   </q-card>
@@ -103,26 +111,18 @@ import { reactive, ref, watch, nextTick, onMounted, onBeforeUnmount, computed } 
 import { useQuasar } from 'quasar'
 import { GeocoderAutocomplete } from '@geoapify/geocoder-autocomplete'
 import '@geoapify/geocoder-autocomplete/styles/minimal.css'
-import '../../styles/address.css'
+import '../../../styles/address.css'
 import L from 'leaflet'
 import 'leaflet/dist/leaflet.css'
 import markerIcon2x from 'leaflet/dist/images/marker-icon-2x.png'
 import markerIcon   from 'leaflet/dist/images/marker-icon.png'
 import markerShadow from 'leaflet/dist/images/marker-shadow.png'
-import { useAuthStore } from '../../stores/auth.js'
-import { useAppStore } from '../../stores/app.js'
+import { useAuthStore } from '../../../stores/auth.js'
+import { useAppStore } from '../../../stores/app.js'
 
 // Fix Leaflet default marker icon paths broken by bundlers
 delete L.Icon.Default.prototype._getIconUrl
 L.Icon.Default.mergeOptions({ iconUrl: markerIcon, iconRetinaUrl: markerIcon2x, shadowUrl: markerShadow })
-
-const props = defineProps({
-  modelValue: {
-    type: Object,
-    default: null,
-  },
-})
-const emit = defineEmits(['update:modelValue'])
 
 const $q   = useQuasar()
 const auth = useAuthStore()
@@ -132,26 +132,18 @@ const apiKey = import.meta.env.VITE_GEOAPIFY_API_KEY ?? ''
 
 // ── Form state ────────────────────────────────────────────────────────────
 
-const _init = props.modelValue ?? auth.user ?? {}
+const _home = auth.user?.addresses?.find(a => a.addressType === 'home') ?? {}
 
 const form = reactive({
-  street:     _init.street     ?? '',
-  postalCode: _init.postalCode ?? '',
-  city:       _init.city       ?? '',
-  state:      _init.state      ?? '',
-  country:    _init.country    ?? '',
-  lat:        _init.lat        ?? null,
-  lon:        _init.lon        ?? null,
+  street:     _home.street     ?? '',
+  postalCode: _home.postalCode ?? '',
+  city:       _home.city       ?? '',
+  state:      _home.state      ?? '',
+  country:    _home.country    ?? '',
+  lat:        _home.lat        ?? null,
+  lon:        _home.lon        ?? null,
+  radiusM:    _home.radiusM    ?? null,
 })
-
-// Emit to parent whenever any field changes
-watch(form, (val) => emit('update:modelValue', { ...val }), { deep: true })
-
-// Sync from parent (controlled usage)
-watch(() => props.modelValue, (val) => {
-  if (!val) return
-  Object.keys(form).forEach(k => { if (Object.prototype.hasOwnProperty.call(val, k)) form[k] = val[k] })
-}, { deep: true })
 
 const locating = ref(false)
 
@@ -190,19 +182,19 @@ onBeforeUnmount(() => {
 
 // ── Map dialog ────────────────────────────────────────────────────────────
 
-const mapOpen       = ref(false)
-const mapEl         = ref(null)
-const mapPreview    = ref(null)
+const mapOpen        = ref(false)
+const mapEl          = ref(null)
+const mapPreview     = ref(null)
 const reverseLoading = ref(false)
 
-let leafletMap   = null
-let clickMarker  = null
+let leafletMap  = null
+let clickMarker = null
 
 async function openMap() {
   mapPreview.value = null
   mapOpen.value    = true
   await nextTick()
-  await nextTick() // two ticks ensure the maximized dialog has rendered
+  await nextTick()
   initMap()
 }
 
@@ -210,7 +202,6 @@ async function initMap() {
   if (!mapEl.value) return
   destroyMap()
 
-  // Default center: use current country/city if available, else world view
   let center = [20, 10]
   let zoom   = 2
 
@@ -242,7 +233,6 @@ async function initMap() {
     await reverseGeocode(lat, lng)
   })
 
-  // Trigger a resize so all tiles render correctly inside the dialog
   setTimeout(() => leafletMap?.invalidateSize(), 100)
 }
 
@@ -329,7 +319,6 @@ function destroyMap() {
   clickMarker = null
 }
 
-// Re-init map every time the dialog opens
 watch(mapOpen, (val) => { if (!val) destroyMap() })
 
 // ── Apply result ──────────────────────────────────────────────────────────
@@ -339,7 +328,6 @@ function applyResult({ street, postalCode, city, state, country, countryCode = '
   form.postalCode = postalCode
   form.city       = city
   form.state      = state
-  // Prefer iso2 lookup so we get the German store name; fall back to raw string
   const storeMatch = countryCode
     ? (app.countryByIso2[countryCode.toUpperCase()]?.name ?? null)
     : app.countries.find(c => c.name === country)?.name ?? null
@@ -348,8 +336,10 @@ function applyResult({ street, postalCode, city, state, country, countryCode = '
   form.lon        = lon
 }
 
+// ── Dirty tracking & settings interface ──────────────────────────────────
+
 function _formSnap() {
-  return JSON.stringify({ street: form.street, postalCode: form.postalCode, city: form.city, state: form.state, country: form.country, lat: form.lat, lon: form.lon })
+  return JSON.stringify({ street: form.street, postalCode: form.postalCode, city: form.city, state: form.state, country: form.country, lat: form.lat, lon: form.lon, radiusM: form.radiusM })
 }
 const snapshot = ref(_formSnap())
 const isDirty  = computed(() => _formSnap() !== snapshot.value)
@@ -363,6 +353,7 @@ function getFields() {
     country:    form.country,
     lat:        form.lat,
     lon:        form.lon,
+    radiusM:    form.radiusM ?? null,
   }
 }
 
@@ -370,7 +361,7 @@ function resetSnapshot() {
   snapshot.value = _formSnap()
 }
 
-defineExpose({ form, getFields, resetSnapshot, isDirty })
+defineExpose({ getFields, isDirty, resetSnapshot })
 
 // ── Country filter (sourced from app store) ──────────────────────────────
 
@@ -386,5 +377,3 @@ function filterCountries(val, update) {
   })
 }
 </script>
-
-

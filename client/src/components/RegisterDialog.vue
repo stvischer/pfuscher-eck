@@ -1,10 +1,11 @@
 <template>
-  <q-dialog :model-value="true" persistent transition-show="fade" transition-hide="fade">
+  <q-dialog :model-value="modelValue" persistent transition-show="fade" transition-hide="fade"
+    @update:model-value="$emit('update:modelValue', $event)">
     <q-card style="width: 360px; max-width: 95vw">
       <q-card-section class="row items-center q-pb-none">
         <div class="text-h6">Create account</div>
         <q-space />
-        <q-btn icon="close" flat round dense @click="router.push('/')" />
+        <q-btn icon="close" flat round dense @click="close" />
       </q-card-section>
 
       <q-card-section>
@@ -83,28 +84,49 @@
 
       <q-card-section class="text-center q-pt-none">
         <span class="text-caption">Already have an account? </span>
-        <router-link :to="{ name: 'login' }" class="text-primary">Login</router-link>
+        <a class="text-primary cursor-pointer" @click="close">Sign in</a>
       </q-card-section>
     </q-card>
   </q-dialog>
 </template>
 
 <script setup>
-import { ref } from 'vue'
+import { ref, watch } from 'vue'
 import { useRouter } from 'vue-router'
 import { useAuthStore } from '../stores/auth.js'
-import PasswordStrength from '../components/shared/PasswordStrength.vue'
+import PasswordStrength from './shared/PasswordStrength.vue'
 
-const auth = useAuthStore()
+const props = defineProps({ modelValue: Boolean })
+const emit  = defineEmits(['update:modelValue'])
+
+const auth   = useAuthStore()
 const router = useRouter()
 
-const nonce     = ref(Math.random().toString(36).slice(2))
-const username  = ref('')
-const email     = ref('')
-const password  = ref('')
-const confirm   = ref('')
-const showPw    = ref(false)
-const pwReady   = ref(false)
+const nonce    = ref(Math.random().toString(36).slice(2))
+const username = ref('')
+const email    = ref('')
+const password = ref('')
+const confirm  = ref('')
+const showPw   = ref(false)
+const pwReady  = ref(false)
+
+// Reset form whenever dialog opens
+watch(() => props.modelValue, (open) => {
+  if (open) {
+    nonce.value    = Math.random().toString(36).slice(2)
+    username.value = ''
+    email.value    = ''
+    password.value = ''
+    confirm.value  = ''
+    showPw.value   = false
+    pwReady.value  = false
+    auth.clearError()
+  }
+})
+
+function close() {
+  emit('update:modelValue', false)
+}
 
 async function submit() {
   auth.clearError()
