@@ -39,16 +39,10 @@ const router = createRouter({
 router.beforeEach(async (to) => {
   const auth = useAuthStore()
 
-  // Try to rehydrate session on first navigation
-  if (auth.user === null && !sessionStorage.getItem('auth_checked')) {
-    sessionStorage.setItem('auth_checked', '1')
-    await auth.fetchMe()
-  }
-
-  // If token refresh failed and user is now unauthenticated, clear the checked flag
-  // so next load will retry — prevents being stuck
+  // Rehydrate session on every navigation where user is not yet loaded.
+  // fetchMe() returns immediately when no token is stored, so this is cheap.
   if (auth.user === null) {
-    sessionStorage.removeItem('auth_checked')
+    await auth.fetchMe()
   }
 
   if (to.meta.guestOnly && auth.isAuthenticated) {

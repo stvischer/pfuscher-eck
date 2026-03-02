@@ -2,6 +2,25 @@ export default async function usersRoutes(fastify) {
 
   // ── helpers ────────────────────────────────────────────────────────────────
 
+  /** Load all skills for a user from user_skills + cnf_skills. */
+  async function loadSkills(conn, userId) {
+    const rows = await conn.query(
+      `SELECT cs.id AS skill_id, cs.name, p.name AS category, us.level
+       FROM   user_skills us
+       JOIN   cnf_skills  cs ON cs.id = us.skill_id
+       LEFT JOIN cnf_skills p  ON p.id  = cs.parent_id
+       WHERE  us.user_id = ?
+       ORDER  BY p.name, cs.name`,
+      [userId],
+    )
+    return rows.map(r => ({
+      skillId:  Number(r.skill_id),
+      name:     r.name,
+      category: r.category ?? null,
+      level:    r.level,
+    }))
+  }
+
   /** Load all addresses for a user and return them as plain objects. */
   async function loadAddresses(conn, userId) {
     const rows = await conn.query(
@@ -77,6 +96,26 @@ export default async function usersRoutes(fastify) {
     }
   }
 
+  // ── GET /api/skills ──────────────────────────────────────────────────────
+  fastify.get(
+    '/api/skills',
+    async (_request, reply) => {
+      const conn = await fastify.db.getConnection()
+      try {
+        const rows = await conn.query(
+          `SELECT cs.id, cs.name, p.name AS category
+           FROM   cnf_skills cs
+           LEFT JOIN cnf_skills p ON p.id = cs.parent_id
+           WHERE  cs.parent_id IS NOT NULL
+           ORDER  BY p.name, cs.name`,
+        )
+        reply.send(rows.map(r => ({ id: Number(r.id), name: r.name, category: r.category ?? null })))
+      } finally {
+        conn.release()
+      }
+    },
+  )
+
   // ── GET /api/users/:id ─────────────────────────────────────────────────────
   fastify.get(
     '/api/users/:id',
@@ -97,12 +136,15 @@ export default async function usersRoutes(fastify) {
       const conn = await fastify.db.getConnection()
       try {
         const rows = await conn.query(
-          'SELECT id, username, display_name, email, role, bio, phone, skills, created_at FROM users WHERE id = ? LIMIT 1',
+          'SELECT id, username, display_name, email, role, bio, phone, created_at FROM users WHERE id = ? LIMIT 1',
           [id],
         )
         if (!rows[0]) return reply.code(404).send({ message: 'User not found' })
-        const addresses = await loadAddresses(conn, id)
-        reply.send(mapUser(rows[0], addresses))
+        const [addresses, skills] = await Promise.all([
+          loadAddresses(conn, id),
+          loadSkills(conn, id),
+        ])
+        reply.send(mapUser(rows[0], addresses, skills))
       } finally {
         conn.release()
       }
@@ -130,7 +172,17 @@ export default async function usersRoutes(fastify) {
             email:       { type: 'string', format: 'email' },
             bio:         { type: 'string', maxLength: 1000 },
             phone:       { type: 'string', maxLength: 30 },
-            skills:      { type: 'array', items: { type: 'string' } },
+            skills: {
+              type: 'array',
+              items: {
+                type: 'object',
+                properties: {
+                  skillId: { type: 'integer', minimum: 1 },
+                  level:   { type: 'string', enum: ['beginner', 'intermediate', 'expert'] },
+                },
+                required: ['skillId'],
+              },
+            },
           },
         },
       },
@@ -164,17 +216,31 @@ export default async function usersRoutes(fastify) {
         if (email       !== undefined) { fields.push('email = ?');        values.push(email) }
         if (bio         !== undefined) { fields.push('bio = ?');          values.push(bio || null) }
         if (phone       !== undefined) { fields.push('phone = ?');        values.push(phone || null) }
-        if (skills      !== undefined) { fields.push('skills = ?');       values.push(JSON.stringify(skills)) }
         values.push(id)
 
-        await conn.query(`UPDATE users SET ${fields.join(', ')} WHERE id = ?`, values)
+        if (fields.length > 0) {
+          await conn.query(`UPDATE users SET ${fields.join(', ')} WHERE id = ?`, values)
+        }
+
+        if (skills !== undefined) {
+          await conn.query('DELETE FROM user_skills WHERE user_id = ?', [id])
+          for (const s of skills) {
+            await conn.query(
+              'INSERT INTO user_skills (user_id, skill_id, level) VALUES (?, ?, ?)',
+              [id, s.skillId, s.level ?? 'beginner'],
+            )
+          }
+        }
 
         const rows = await conn.query(
-          'SELECT id, username, display_name, email, role, bio, phone, skills, created_at FROM users WHERE id = ? LIMIT 1',
+          'SELECT id, username, display_name, email, role, bio, phone, created_at FROM users WHERE id = ? LIMIT 1',
           [id],
         )
-        const addresses = await loadAddresses(conn, id)
-        reply.send(mapUser(rows[0], addresses))
+        const [addresses, userSkills] = await Promise.all([
+          loadAddresses(conn, id),
+          loadSkills(conn, id),
+        ])
+        reply.send(mapUser(rows[0], addresses, userSkills))
       } finally {
         conn.release()
       }
@@ -373,16 +439,16 @@ export default async function usersRoutes(fastify) {
 
 // ── mappers ──────────────────────────────────────────────────────────────────
 
-function mapUser(u, addresses = []) {
+function mapUser(u, addresses = [], skills = []) {
   return {
     id:          Number(u.id),
     username:    u.username,
     displayName: u.display_name ?? null,
     email:       u.email,
     role:        u.role,
-    bio:         u.bio          ?? null,
-    phone:       u.phone        ?? null,
-    skills:      u.skills ? (typeof u.skills === 'string' ? JSON.parse(u.skills) : u.skills) : [],
+    bio:         u.bio   ?? null,
+    phone:       u.phone ?? null,
+    skills,
     addresses,
     createdAt:   u.created_at,
   }
