@@ -32,6 +32,7 @@ const migrations = [
   '020_add_radius_to_user_addresses.sql',
   '021_create_cnf_countries.sql',
   '022_seed_cnf_countries.sql',
+  '023_create_repair_requests.sql',
 ]
 
 const conn = await createConnection({

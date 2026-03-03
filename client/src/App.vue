@@ -113,8 +113,9 @@ const router = useRouter()
 const drawerOpen = ref(false)
 
 const navLinks = [
-  { name: 'home', label: 'Home', icon: 'home' },
-  { name: 'chat', label: 'Chat', icon: 'chat' },
+  { name: 'home',    label: 'Home',    icon: 'home'    },
+  { name: 'chat',    label: 'Chat',    icon: 'chat'    },
+  { name: 'repairs', label: 'Repairs', icon: 'build'   },
 ]
 
 onMounted(() => {
