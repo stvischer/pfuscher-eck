@@ -5,7 +5,7 @@ export default async function repairsRoutes(fastify) {
   async function loadSkills(conn, requestId) {
     const rows = await conn.query(
       `SELECT cs.id, cs.name, p.name AS category
-       FROM   request_skills rs
+       FROM   repair_request_skills rs
        JOIN   cnf_skills cs ON cs.id = rs.skill_id
        LEFT JOIN cnf_skills p ON p.id = cs.parent_id
        WHERE  rs.request_id = ?
@@ -19,7 +19,7 @@ export default async function repairsRoutes(fastify) {
     const [row] = await conn.query(
       `SELECT a.id, a.street, a.city, a.state, a.postal_code, a.country,
               ST_Y(a.location) AS lat, ST_X(a.location) AS lon
-       FROM   request_addresses ra
+       FROM   repair_request_addresses ra
        JOIN   addresses a ON a.id = ra.address_id
        WHERE  ra.request_id = ?
        LIMIT  1`,
@@ -220,7 +220,7 @@ export default async function repairsRoutes(fastify) {
         const addressId = Number(addrResult.insertId)
 
         await conn.query(
-          'INSERT INTO request_addresses (request_id, address_id) VALUES (?, ?)',
+          'INSERT INTO repair_request_addresses (request_id, address_id) VALUES (?, ?)',
           [requestId, addressId],
         )
 
@@ -229,7 +229,7 @@ export default async function repairsRoutes(fastify) {
           const placeholders = skillIds.map(() => '(?, ?)').join(', ')
           const params = skillIds.flatMap(sid => [requestId, sid])
           await conn.query(
-            `INSERT IGNORE INTO request_skills (request_id, skill_id) VALUES ${placeholders}`,
+            `INSERT IGNORE INTO repair_request_skills (request_id, skill_id) VALUES ${placeholders}`,
             params,
           )
         }
@@ -326,7 +326,7 @@ export default async function repairsRoutes(fastify) {
           addrValues.push(id)
           await conn.query(
             `UPDATE addresses a
-             JOIN   request_addresses ra ON ra.address_id = a.id
+             JOIN   repair_request_addresses ra ON ra.address_id = a.id
              SET    ${addrUpdates.join(', ')}
              WHERE  ra.request_id = ?`,
             addrValues,
@@ -335,12 +335,12 @@ export default async function repairsRoutes(fastify) {
 
         // Update skills if provided
         if (Array.isArray(request.body.skillIds)) {
-          await conn.query('DELETE FROM request_skills WHERE request_id = ?', [id])
+          await conn.query('DELETE FROM repair_request_skills WHERE request_id = ?', [id])
           if (request.body.skillIds.length > 0) {
             const placeholders = request.body.skillIds.map(() => '(?, ?)').join(', ')
             const params = request.body.skillIds.flatMap(sid => [Number(id), sid])
             await conn.query(
-              `INSERT IGNORE INTO request_skills (request_id, skill_id) VALUES ${placeholders}`,
+              `INSERT IGNORE INTO repair_request_skills (request_id, skill_id) VALUES ${placeholders}`,
               params,
             )
           }

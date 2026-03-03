@@ -34,37 +34,37 @@ CREATE TABLE IF NOT EXISTS repair_requests (
     ON DELETE CASCADE ON UPDATE CASCADE
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
--- ── request_addresses ─────────────────────────────────────────────────────────
+-- ── repair_request_addresses ─────────────────────────────────────────────────
 -- Each request can have one address, stored in the shared addresses table.
-CREATE TABLE IF NOT EXISTS request_addresses (
+CREATE TABLE IF NOT EXISTS repair_request_addresses (
   id          INT UNSIGNED NOT NULL AUTO_INCREMENT,
   request_id  INT UNSIGNED NOT NULL,
   address_id  INT UNSIGNED NOT NULL,
   created_at  DATETIME     NOT NULL DEFAULT CURRENT_TIMESTAMP,
 
   PRIMARY KEY (id),
-  UNIQUE KEY uq_request_address (request_id, address_id),
+  UNIQUE KEY uq_repair_request_address (request_id, address_id),
 
-  CONSTRAINT fk_req_addr_request
+  CONSTRAINT fk_repair_req_addr_request
     FOREIGN KEY (request_id) REFERENCES repair_requests(id)
     ON DELETE CASCADE ON UPDATE CASCADE,
-  CONSTRAINT fk_req_addr_address
+  CONSTRAINT fk_repair_req_addr_address
     FOREIGN KEY (address_id) REFERENCES addresses(id)
     ON DELETE CASCADE ON UPDATE CASCADE
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
--- ── request_skills ────────────────────────────────────────────────────────────
+-- ── repair_request_skills ─────────────────────────────────────────────────────
 -- Skills required to fulfil the repair request.
-CREATE TABLE IF NOT EXISTS request_skills (
+CREATE TABLE IF NOT EXISTS repair_request_skills (
   request_id INT UNSIGNED NOT NULL,
   skill_id   INT UNSIGNED NOT NULL,
 
   PRIMARY KEY (request_id, skill_id),
 
-  CONSTRAINT fk_req_skills_request
+  CONSTRAINT fk_repair_req_skills_request
     FOREIGN KEY (request_id) REFERENCES repair_requests(id)
     ON DELETE CASCADE ON UPDATE CASCADE,
-  CONSTRAINT fk_req_skills_skill
+  CONSTRAINT fk_repair_req_skills_skill
     FOREIGN KEY (skill_id) REFERENCES cnf_skills(id)
     ON DELETE CASCADE ON UPDATE CASCADE
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
