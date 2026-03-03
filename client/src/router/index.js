@@ -25,6 +25,12 @@ const routes = [
     meta: { requiresAuth: true },
   },
   {
+    path: '/repairs',
+    name: 'repairs',
+    component: () => import('../pages/RepairRequestPage.vue'),
+    meta: { requiresAuth: true },
+  },
+  {
     path: '/:pathMatch(.*)*',
     redirect: '/',
   },

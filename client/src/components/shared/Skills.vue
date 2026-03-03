@@ -52,6 +52,8 @@ import { useAuthStore } from '../../stores/auth.js'
 const props = defineProps({
   /** v-model: [{ skillId, level }] */
   modelValue: { type: Array, default: null },
+  /** When set, only the root skill with this id is shown in the tree */
+  rootId: { type: Number, default: null },
 })
 const emit = defineEmits(['update:modelValue'])
 
@@ -118,10 +120,11 @@ function removeById(id) {
 const search = ref('')
 
 const visibleTree = computed(() => {
+  const roots = app.skills   // always show the full tree
   const q = search.value.trim().toLowerCase()
-  if (!q) return app.skills
+  if (!q) return roots
 
-  return app.skills
+  return roots
     .map(parent => {
       const matchesParent = parent.name.toLowerCase().includes(q)
       const filteredChildren = matchesParent
@@ -132,17 +135,24 @@ const visibleTree = computed(() => {
     .filter(Boolean)
 })
 
-// Expand parents that contain selected children; expand all when a search is active
-const selectedIds = computed(() => new Set(selected.value.map(s => s.id)))
+// When rootId changes, pre-select all leaf children under that root
+watch(() => props.rootId, (id) => {
+  if (!app.loaded || id == null) return
+  const root = app.skills.find(s => s.id === id)
+  if (!root) return
+  selected.value = (root.children ?? []).map(c => ({ ...c, level: 'beginner' }))
+}, { immediate: true })
+
+// Expand nodes only when a search is active; keep everything collapsed otherwise
 const expandedIds = ref([])
 
 function _updateExpanded() {
-  expandedIds.value = visibleTree.value
-    .filter(p => search.value.trim() || p.children.some(c => selectedIds.value.has(c.id)))
-    .map(p => p.id)
+  expandedIds.value = search.value.trim()
+    ? visibleTree.value.map(p => p.id)
+    : []
 }
 
-watch([selectedIds, visibleTree], _updateExpanded, { immediate: true })
+watch([() => search.value, visibleTree], _updateExpanded, { immediate: true })
 
 function getFields() {
   return {

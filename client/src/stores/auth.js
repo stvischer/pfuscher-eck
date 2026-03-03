@@ -38,7 +38,8 @@ export const useAuthStore = defineStore('auth', () => {
     try {
       const res = await api.post('/auth/login', { email, password })
       tokenStorage.save(res.accessToken, res.refreshToken, remember)
-      user.value = res.user
+      // Load the full profile (includes addresses, skills) right away
+      user.value = await api.get(`/users/${res.user.id}`)
       connect()
     } catch (err) {
       error.value = err.message
@@ -54,7 +55,8 @@ export const useAuthStore = defineStore('auth', () => {
     try {
       const res = await api.post('/auth/register', { username, email, password })
       tokenStorage.save(res.accessToken, res.refreshToken, false)
-      user.value = res.user
+      // Load the full profile (includes addresses, skills) right away
+      user.value = await api.get(`/users/${res.user.id}`)
       connect()
     } catch (err) {
       error.value = err.message

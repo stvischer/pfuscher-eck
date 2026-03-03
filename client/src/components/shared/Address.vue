@@ -1,8 +1,10 @@
 <template>
   <q-card flat>
     <q-card-section>
-      <div class="text-subtitle1 text-weight-medium q-mb-xs">Address</div>
-      <div class="text-caption text-grey q-mb-md">Your physical or mailing address.</div>
+      <template v-if="!hideTitle">
+        <div class="text-subtitle1 text-weight-medium q-mb-xs">Address</div>
+        <div class="text-caption text-grey q-mb-md">Your physical or mailing address.</div>
+      </template>
 
       <!-- Autocomplete + map button -->
       <div class="q-mb-md">
@@ -120,6 +122,10 @@ const props = defineProps({
   modelValue: {
     type: Object,
     default: null,
+  },
+  hideTitle: {
+    type: Boolean,
+    default: false,
   },
 })
 const emit = defineEmits(['update:modelValue'])
