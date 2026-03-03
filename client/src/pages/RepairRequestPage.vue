@@ -23,17 +23,7 @@
           emit-value
         />
       </div>
-      <div class="col-6 col-sm-3 col-md-2">
-        <q-select
-          v-model="filterUrgency"
-          :options="[{ label: 'All urgencies', value: null }, ...URGENCY_OPTIONS]"
-          option-label="label"
-          option-value="value"
-          emit-value map-options
-          outlined dense
-          bg-color="white"
-        />
-      </div>
+
       <div class="col-12 col-sm-auto text-caption text-grey q-pl-xs">
         {{ filteredRequests.length }} request{{ filteredRequests.length === 1 ? '' : 's' }}
       </div>
@@ -61,22 +51,11 @@
           flat bordered
           class="repair-card"
         >
-          <!-- Header: title + urgency badge + date -->
+          <!-- Header: title + date -->
           <q-card-section class="q-pb-xs">
-            <div class="row items-start no-wrap">
-              <div class="col">
-                <div class="text-subtitle1 text-weight-bold">{{ req.title }}</div>
-                <div class="text-caption text-grey">
-                  {{ req.username }} · {{ formatDate(req.createdAt) }}
-                </div>
-              </div>
-              <q-badge
-                :color="urgencyColor(req.urgency)"
-                text-color="white"
-                class="q-ml-sm q-mt-xs"
-              >
-                {{ req.urgency }}
-              </q-badge>
+            <div class="text-subtitle1 text-weight-bold">{{ req.title }}</div>
+            <div class="text-caption text-grey">
+              {{ req.username }} · {{ formatDate(req.createdAt) }}
             </div>
           </q-card-section>
 
@@ -107,13 +86,13 @@
 
           <!-- Location -->
           <q-card-section
-            v-if="req.street || req.city || req.postalCode"
+            v-if="req.address?.street || req.address?.city || req.address?.postalCode"
             class="q-py-sm"
           >
             <div class="row items-center text-caption text-grey no-wrap">
               <q-icon name="location_on" size="xs" class="q-mr-xs" color="grey" />
               <span class="ellipsis">
-                {{ [req.street, req.postalCode, req.city].filter(Boolean).join(', ') }}
+                {{ [req.address?.street, req.address?.postalCode, req.address?.city].filter(Boolean).join(', ') }}
               </span>
             </div>
           </q-card-section>
@@ -144,97 +123,7 @@
         </q-toolbar>
 
         <q-scroll-area class="col">
-          <div class="q-pa-md" style="max-width: 680px; margin: 0 auto">
-
-            <!-- Title -->
-            <q-input
-              v-model="form.title"
-              label="Title *"
-              outlined dense
-              class="q-mb-sm"
-              :error="!!formErrors.title"
-              :error-message="formErrors.title"
-            />
-
-            <!-- Category + Urgency -->
-            <div class="row q-col-gutter-sm q-mb-sm">
-              <div class="col-12 col-sm-6">
-                <q-select
-                  v-model="form.category"
-                  label="Category"
-                  :options="CATEGORIES"
-                  outlined dense clearable
-                />
-              </div>
-              <div class="col-12 col-sm-6">
-                <q-select
-                  v-model="form.urgency"
-                  label="Urgency"
-                  :options="URGENCY_OPTIONS"
-                  emit-value map-options
-                  outlined dense
-                />
-              </div>
-            </div>
-
-            <!-- Description -->
-            <q-input
-              v-model="form.description"
-              label="Description *"
-              type="textarea"
-              outlined dense
-              autogrow
-              class="q-mb-sm"
-              :error="!!formErrors.description"
-              :error-message="formErrors.description"
-            />
-
-            <!-- Budget -->
-            <div class="text-caption text-weight-medium q-mb-xs q-mt-xs">Budget (optional)</div>
-            <div class="row q-col-gutter-sm q-mb-md">
-              <div class="col-6">
-                <q-input v-model.number="form.budgetMin" label="Min (€)" type="number" outlined dense :min="0" />
-              </div>
-              <div class="col-6">
-                <q-input v-model.number="form.budgetMax" label="Max (€)" type="number" outlined dense :min="0" />
-              </div>
-            </div>
-
-            <q-separator class="q-mb-md" />
-
-            <!-- Location -->
-            <div class="text-subtitle2 text-weight-medium q-mb-sm">
-              <q-icon name="location_on" class="q-mr-xs" />Location
-            </div>
-            <div class="q-gutter-y-sm q-mb-md">
-              <q-input v-model="form.street" label="Street & number" outlined dense />
-              <div class="row q-col-gutter-sm">
-                <div class="col-12 col-sm-4">
-                  <q-input v-model="form.postalCode" label="Postal code" outlined dense />
-                </div>
-                <div class="col-12 col-sm-8">
-                  <q-input v-model="form.city" label="City" outlined dense />
-                </div>
-              </div>
-              <q-select
-                v-model="form.country"
-                label="Country"
-                :options="countryOptions"
-                outlined dense clearable
-                use-input input-debounce="0"
-                @filter="filterCountries"
-              />
-            </div>
-
-            <q-separator class="q-mb-md" />
-
-            <!-- Skills -->
-            <div class="text-subtitle2 text-weight-medium q-mb-sm">
-              <q-icon name="handyman" class="q-mr-xs" />Skills needed
-            </div>
-            <SkillsSelector v-model="form.skills" />
-
-          </div>
+          <RepairRequestForm ref="formRef" @submitted="onSubmitted" />
         </q-scroll-area>
 
         <q-separator />
@@ -243,8 +132,8 @@
           <q-btn
             unelevated color="primary"
             icon="send" label="Submit"
-            :loading="submitting"
-            @click="submit"
+            :loading="formRef?.submitting"
+            @click="formRef?.submit()"
           />
         </q-card-actions>
       </q-card>
@@ -254,15 +143,13 @@
 </template>
 
 <script setup>
-import { ref, reactive, computed, onMounted } from 'vue'
+import { ref, computed, onMounted } from 'vue'
 import { useQuasar } from 'quasar'
 import { api } from '../composables/useApi.js'
-import { useAppStore } from '../stores/app.js'
 import { useAuthStore } from '../stores/auth.js'
-import SkillsSelector from '../components/shared/Skills.vue'
+import RepairRequestForm from '../components/request/RepairRequestForm.vue'
 
 const $q   = useQuasar()
-const app  = useAppStore()
 const auth = useAuthStore()
 
 // ── Constants ─────────────────────────────────────────────────────────────────
@@ -272,19 +159,12 @@ const CATEGORIES = [
   'Electrical', 'HVAC', 'Automotive', 'Appliances', 'Furniture', 'Other',
 ]
 
-const URGENCY_OPTIONS = [
-  { label: 'Low',    value: 'low'    },
-  { label: 'Medium', value: 'medium' },
-  { label: 'High',   value: 'high'   },
-]
-
 // ── List state ────────────────────────────────────────────────────────────────
 
 const requests       = ref([])
 const loading        = ref(false)
 const filterText     = ref('')
 const filterCategory = ref(null)
-const filterUrgency  = ref(null)
 
 const filteredRequests = computed(() => {
   let list = requests.value
@@ -294,14 +174,11 @@ const filteredRequests = computed(() => {
       r.title.toLowerCase().includes(q) ||
       r.description.toLowerCase().includes(q) ||
       r.skills.some(s => s.name.toLowerCase().includes(q)) ||
-      [r.city, r.street, r.postalCode].filter(Boolean).join(' ').toLowerCase().includes(q),
+      [r.address?.city, r.address?.street, r.address?.postalCode].filter(Boolean).join(' ').toLowerCase().includes(q),
     )
   }
   if (filterCategory.value) {
     list = list.filter(r => r.category === filterCategory.value)
-  }
-  if (filterUrgency.value) {
-    list = list.filter(r => r.urgency === filterUrgency.value)
   }
   return list
 })
@@ -320,81 +197,16 @@ async function loadRequests() {
 // ── Form / Dialog ─────────────────────────────────────────────────────────────
 
 const dialogOpen = ref(false)
-const submitting = ref(false)
-const formErrors = reactive({ title: '', description: '' })
-
-function emptyForm() {
-  return {
-    title:       '',
-    description: '',
-    category:    null,
-    urgency:     'medium',
-    budgetMin:   null,
-    budgetMax:   null,
-    street:      '',
-    city:        '',
-    postalCode:  '',
-    country:     null,
-    skills:      [],
-  }
-}
-
-const form = reactive(emptyForm())
-
-function resetForm() {
-  Object.assign(form, emptyForm())
-  formErrors.title = ''
-  formErrors.description = ''
-}
+const formRef    = ref(null)
 
 function cancelDialog() {
   dialogOpen.value = false
-  resetForm()
+  formRef.value?.reset()
 }
 
-function validate() {
-  formErrors.title = ''
-  formErrors.description = ''
-  let ok = true
-  if (!form.title || form.title.length < 3) {
-    formErrors.title = 'Title is required (min 3 characters)'
-    ok = false
-  }
-  if (!form.description || form.description.length < 10) {
-    formErrors.description = 'Description is required (min 10 characters)'
-    ok = false
-  }
-  return ok
-}
-
-async function submit() {
-  if (!validate()) return
-
-  submitting.value = true
-  try {
-    const created = await api.post('/repairs', {
-      title:       form.title,
-      description: form.description,
-      category:    form.category   ?? undefined,
-      urgency:     form.urgency,
-      budgetMin:   form.budgetMin  ?? undefined,
-      budgetMax:   form.budgetMax  ?? undefined,
-      street:      form.street     || undefined,
-      city:        form.city       || undefined,
-      postalCode:  form.postalCode || undefined,
-      country:     form.country?.value ?? form.country ?? undefined,
-      skillIds:    form.skills.map(s => s.skillId),
-    })
-
-    requests.value = [created, ...requests.value]
-    $q.notify({ type: 'positive', message: 'Request posted!', position: 'top' })
-    dialogOpen.value = false
-    resetForm()
-  } catch (err) {
-    $q.notify({ type: 'negative', message: err.message ?? 'Submit failed', position: 'top' })
-  } finally {
-    submitting.value = false
-  }
+function onSubmitted(created) {
+  requests.value = [created, ...requests.value]
+  dialogOpen.value = false
 }
 
 // ── Delete ────────────────────────────────────────────────────────────────────
@@ -416,24 +228,9 @@ function deleteRequest(req) {
   })
 }
 
-// ── Country filter ────────────────────────────────────────────────────────────
-
-const countryOptions = ref([])
-
-function filterCountries(val, update) {
-  update(() => {
-    const q = val.trim().toLowerCase()
-    countryOptions.value = app.countries
-      .filter(c => !q || c.name.toLowerCase().includes(q) || c.iso2.toLowerCase().includes(q))
-      .map(c => ({ label: c.name, value: c.iso2 }))
-  })
-}
-
 // ── Helpers ───────────────────────────────────────────────────────────────────
 
-function urgencyColor(urgency) {
-  return { low: 'positive', medium: 'warning', high: 'negative' }[urgency] ?? 'grey'
-}
+
 
 function formatDate(dt) {
   if (!dt) return ''

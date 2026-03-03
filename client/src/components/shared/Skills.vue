@@ -52,6 +52,8 @@ import { useAuthStore } from '../../stores/auth.js'
 const props = defineProps({
   /** v-model: [{ skillId, level }] */
   modelValue: { type: Array, default: null },
+  /** When set, only the root skill with this id is shown in the tree */
+  rootId: { type: Number, default: null },
 })
 const emit = defineEmits(['update:modelValue'])
 
@@ -118,10 +120,13 @@ function removeById(id) {
 const search = ref('')
 
 const visibleTree = computed(() => {
+  const roots = props.rootId
+    ? app.skills.filter(p => p.id === props.rootId)
+    : app.skills
   const q = search.value.trim().toLowerCase()
-  if (!q) return app.skills
+  if (!q) return roots
 
-  return app.skills
+  return roots
     .map(parent => {
       const matchesParent = parent.name.toLowerCase().includes(q)
       const filteredChildren = matchesParent

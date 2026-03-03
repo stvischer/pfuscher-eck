@@ -5,14 +5,37 @@ export default async function repairsRoutes(fastify) {
   async function loadSkills(conn, requestId) {
     const rows = await conn.query(
       `SELECT cs.id, cs.name, p.name AS category
-       FROM   repair_request_skills rrs
-       JOIN   cnf_skills cs ON cs.id = rrs.skill_id
+       FROM   request_skills rs
+       JOIN   cnf_skills cs ON cs.id = rs.skill_id
        LEFT JOIN cnf_skills p ON p.id = cs.parent_id
-       WHERE  rrs.request_id = ?
+       WHERE  rs.request_id = ?
        ORDER  BY p.name, cs.name`,
       [requestId],
     )
     return rows.map(r => ({ id: Number(r.id), name: r.name, category: r.category ?? null }))
+  }
+
+  async function loadAddress(conn, requestId) {
+    const [row] = await conn.query(
+      `SELECT a.id, a.street, a.city, a.state, a.postal_code, a.country,
+              ST_Y(a.location) AS lat, ST_X(a.location) AS lon
+       FROM   request_addresses ra
+       JOIN   addresses a ON a.id = ra.address_id
+       WHERE  ra.request_id = ?
+       LIMIT  1`,
+      [requestId],
+    )
+    if (!row) return null
+    return {
+      id:         Number(row.id),
+      street:     row.street     ?? null,
+      city:       row.city       ?? null,
+      state:      row.state      ?? null,
+      postalCode: row.postal_code ?? null,
+      country:    row.country    ?? null,
+      lat:        row.lat  != null ? Number(row.lat)  : null,
+      lon:        row.lon  != null ? Number(row.lon)  : null,
+    }
   }
 
   function mapRequest(r) {
@@ -23,15 +46,9 @@ export default async function repairsRoutes(fastify) {
       title:       r.title,
       description: r.description,
       category:    r.category ?? null,
-      urgency:     r.urgency,
-      budgetMin:   r.budget_min != null ? Number(r.budget_min) : null,
-      budgetMax:   r.budget_max != null ? Number(r.budget_max) : null,
       status:      r.status,
-      street:      r.street ?? null,
-      city:        r.city   ?? null,
-      postalCode:  r.postal_code ?? null,
-      country:     r.country ?? null,
-      skills:      [],
+      address:     null,   // populated via loadAddress()
+      skills:      [],     // populated via loadSkills()
       createdAt:   r.created_at,
       updatedAt:   r.updated_at,
     }
@@ -70,9 +87,9 @@ export default async function repairsRoutes(fastify) {
 
       const requests = rows.map(mapRequest)
 
-      // Attach skills for each request
       for (const req of requests) {
-        req.skills = await loadSkills(conn, req.id)
+        req.address = await loadAddress(conn, req.id)
+        req.skills  = await loadSkills(conn, req.id)
       }
 
       return reply.send(requests)
@@ -101,7 +118,8 @@ export default async function repairsRoutes(fastify) {
 
         const requests = rows.map(mapRequest)
         for (const req of requests) {
-          req.skills = await loadSkills(conn, req.id)
+          req.address = await loadAddress(conn, req.id)
+          req.skills  = await loadSkills(conn, req.id)
         }
 
         return reply.send(requests)
@@ -127,7 +145,8 @@ export default async function repairsRoutes(fastify) {
       if (!row) return reply.code(404).send({ message: 'Not found' })
 
       const req = mapRequest(row)
-      req.skills = await loadSkills(conn, req.id)
+      req.address = await loadAddress(conn, req.id)
+      req.skills  = await loadSkills(conn, req.id)
 
       return reply.send(req)
     } finally {
@@ -149,13 +168,13 @@ export default async function repairsRoutes(fastify) {
             title:       { type: 'string', minLength: 3, maxLength: 255 },
             description: { type: 'string', minLength: 10 },
             category:    { type: 'string', maxLength: 100 },
-            urgency:     { type: 'string', enum: ['low', 'medium', 'high'] },
-            budgetMin:   { type: 'number', minimum: 0 },
-            budgetMax:   { type: 'number', minimum: 0 },
             street:      { type: 'string', maxLength: 255 },
             city:        { type: 'string', maxLength: 100 },
+            state:       { type: 'string', maxLength: 100 },
             postalCode:  { type: 'string', maxLength: 20 },
-            country:     { type: 'string', maxLength: 5 },
+            country:     { type: 'string', maxLength: 100 },
+            lat:         { type: 'number' },
+            lon:         { type: 'number' },
             skillIds:    { type: 'array', items: { type: 'integer' } },
           },
         },
@@ -165,37 +184,53 @@ export default async function repairsRoutes(fastify) {
       const userId = request.user.id
       const {
         title, description,
-        category    = null,
-        urgency     = 'medium',
-        budgetMin   = null,
-        budgetMax   = null,
-        street      = null,
-        city        = null,
-        postalCode  = null,
-        country     = null,
-        skillIds    = [],
+        category   = null,
+        street     = null,
+        city       = null,
+        state      = null,
+        postalCode = null,
+        country    = null,
+        lat        = null,
+        lon        = null,
+        skillIds   = [],
       } = request.body
 
       const conn = await fastify.db.getConnection()
       try {
         await conn.query('START TRANSACTION')
 
+        // Insert the lean request row
         const result = await conn.query(
-          `INSERT INTO repair_requests
-             (user_id, title, description, category, urgency, budget_min, budget_max,
-              street, city, postal_code, country)
-           VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
-          [userId, title, description, category, urgency, budgetMin, budgetMax,
-           street, city, postalCode, country],
+          `INSERT INTO repair_requests (user_id, title, description, category)
+           VALUES (?, ?, ?, ?)`,
+          [userId, title, description, category],
         )
 
         const requestId = Number(result.insertId)
 
+        // Insert address into shared addresses table then link it
+        const addrResult = await conn.query(
+          `INSERT INTO addresses
+             (street, city, state, postal_code, country${lat != null && lon != null ? ', location' : ''})
+           VALUES (?, ?, ?, ?, ?${lat != null && lon != null ? ', ST_GeomFromText(?, 4326)' : ''})`,
+          lat != null && lon != null
+            ? [street, city, state, postalCode, country, `POINT(${lon} ${lat})`]
+            : [street, city, state, postalCode, country],
+        )
+        const addressId = Number(addrResult.insertId)
+
+        await conn.query(
+          'INSERT INTO request_addresses (request_id, address_id) VALUES (?, ?)',
+          [requestId, addressId],
+        )
+
+        // Insert skills
         if (skillIds.length > 0) {
-          const skillRows = skillIds.map(sid => [requestId, sid])
+          const placeholders = skillIds.map(() => '(?, ?)').join(', ')
+          const params = skillIds.flatMap(sid => [requestId, sid])
           await conn.query(
-            'INSERT IGNORE INTO repair_request_skills (request_id, skill_id) VALUES ?',
-            [skillRows],
+            `INSERT IGNORE INTO request_skills (request_id, skill_id) VALUES ${placeholders}`,
+            params,
           )
         }
 
@@ -210,7 +245,8 @@ export default async function repairsRoutes(fastify) {
         )
 
         const req = mapRequest(created)
-        req.skills = await loadSkills(conn, requestId)
+        req.address = await loadAddress(conn, requestId)
+        req.skills  = await loadSkills(conn, requestId)
 
         return reply.code(201).send(req)
       } catch (err) {
@@ -241,14 +277,11 @@ export default async function repairsRoutes(fastify) {
           return reply.code(403).send({ message: 'Forbidden' })
         }
 
-        const allowed = ['title', 'description', 'category', 'urgency', 'budgetMin', 'budgetMax',
-                         'street', 'city', 'postalCode', 'country', 'status']
+        const allowed = ['title', 'description', 'category', 'status']
 
         const colMap = {
-          title: 'title', description: 'description', category: 'category',
-          urgency: 'urgency', budgetMin: 'budget_min', budgetMax: 'budget_max',
-          street: 'street', city: 'city', postalCode: 'postal_code',
-          country: 'country', status: 'status',
+          title: 'title', description: 'description',
+          category: 'category', status: 'status',
         }
 
         const fields = []
@@ -269,14 +302,46 @@ export default async function repairsRoutes(fastify) {
           )
         }
 
+        // Update address if provided (update the linked addresses row)
+        const addrFields = ['street', 'city', 'state', 'postalCode', 'country']
+        const addrColMap = {
+          street: 'street', city: 'city', state: 'state',
+          postalCode: 'postal_code', country: 'country',
+        }
+        const addrUpdates = []
+        const addrValues  = []
+        for (const key of addrFields) {
+          if (request.body[key] !== undefined) {
+            addrUpdates.push(`${addrColMap[key]} = ?`)
+            addrValues.push(request.body[key])
+          }
+        }
+        // lat/lon → geometry column
+        const { lat, lon } = request.body
+        if (lat != null && lon != null) {
+          addrUpdates.push('location = ST_GeomFromText(?, 4326)')
+          addrValues.push(`POINT(${lon} ${lat})`)
+        }
+        if (addrUpdates.length > 0) {
+          addrValues.push(id)
+          await conn.query(
+            `UPDATE addresses a
+             JOIN   request_addresses ra ON ra.address_id = a.id
+             SET    ${addrUpdates.join(', ')}
+             WHERE  ra.request_id = ?`,
+            addrValues,
+          )
+        }
+
         // Update skills if provided
         if (Array.isArray(request.body.skillIds)) {
-          await conn.query('DELETE FROM repair_request_skills WHERE request_id = ?', [id])
+          await conn.query('DELETE FROM request_skills WHERE request_id = ?', [id])
           if (request.body.skillIds.length > 0) {
-            const skillRows = request.body.skillIds.map(sid => [Number(id), sid])
+            const placeholders = request.body.skillIds.map(() => '(?, ?)').join(', ')
+            const params = request.body.skillIds.flatMap(sid => [Number(id), sid])
             await conn.query(
-              'INSERT IGNORE INTO repair_request_skills (request_id, skill_id) VALUES ?',
-              [skillRows],
+              `INSERT IGNORE INTO request_skills (request_id, skill_id) VALUES ${placeholders}`,
+              params,
             )
           }
         }
@@ -286,7 +351,8 @@ export default async function repairsRoutes(fastify) {
           [id],
         )
         const req = mapRequest(row)
-        req.skills = await loadSkills(conn, req.id)
+        req.address = await loadAddress(conn, req.id)
+        req.skills  = await loadSkills(conn, req.id)
 
         return reply.send(req)
       } finally {

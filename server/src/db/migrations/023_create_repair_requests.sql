@@ -1,7 +1,7 @@
 -- Repair requests submitted by users
 CREATE TABLE IF NOT EXISTS repair_requests (
   id           INT UNSIGNED NOT NULL AUTO_INCREMENT PRIMARY KEY,
-  user_id      INT          NOT NULL,
+  user_id      INT UNSIGNED NOT NULL,
   title        VARCHAR(255) NOT NULL,
   description  TEXT         NOT NULL,
   category     VARCHAR(100) NULL,
@@ -21,7 +21,7 @@ CREATE TABLE IF NOT EXISTS repair_requests (
 -- Skills required for a repair request
 CREATE TABLE IF NOT EXISTS repair_request_skills (
   request_id INT UNSIGNED NOT NULL,
-  skill_id   INT          NOT NULL,
+  skill_id   INT UNSIGNED NOT NULL,
   PRIMARY KEY (request_id, skill_id),
   FOREIGN KEY (request_id) REFERENCES repair_requests(id) ON DELETE CASCADE,
   FOREIGN KEY (skill_id)   REFERENCES cnf_skills(id)      ON DELETE CASCADE
