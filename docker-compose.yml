@@ -1,0 +1,34 @@
+services:
+  mariadb:
+    # 'latest' zieht die aktuellste stabile Rolling-Release (z.B. 12.2.2)
+    # Nutze 'mariadb:lts' für maximale Langzeit-Stabilität (11.8.x)
+    image: mariadb:latest
+    container_name: mariadb_server
+    restart: always
+    environment:
+      # Passwort für den Root-Benutzer (bitte ändern!)
+      MARIADB_ROOT_PASSWORD: dein_sicheres_passwort
+      # Erstellt automatisch eine Datenbank beim ersten Start
+      MARIADB_DATABASE: meine_app_db
+      # WICHTIG: Führt bei Versionssprüngen automatisch 'mariadb-upgrade' aus
+      MARIADB_AUTO_UPGRADE: "1"
+    volumes:
+      # Speichert Datenbankdaten lokal auf deinem Host-System
+      - ./mysql_data:/var/lib/mysql
+    ports:
+      - "3306:3306"
+
+  redis:
+    # 'redis:latest' zieht die aktuellste stabile Redis-Version
+    image: redis:latest
+    container_name: redis_cache
+    restart: always
+    command: redis-server --appendonly yes # Aktiviert Daten-Persistenz für Redis
+    volumes:
+      - ./redis_data:/data
+    ports:
+      - "6379:6379"
+
+volumes:
+  mysql_data:
+  redis_data:
