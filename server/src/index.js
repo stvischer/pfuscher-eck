@@ -3,6 +3,9 @@ import fastifyEnv from '@fastify/env'
 import autoload from '@fastify/autoload'
 import { fileURLToPath } from 'url'
 import { dirname, join } from 'path'
+import config from 'config'
+
+import {setBaseLogger, getLoggerConfig} from './lib/logger.js'
 
 const __dirname = dirname(fileURLToPath(import.meta.url))
 
@@ -23,7 +26,9 @@ const schema = {
   },
 }
 
-const fastify = Fastify({ logger: true })
+const fastify = Fastify({ logger: getLoggerConfig()})
+
+setBaseLogger(fastify.log)
 
 // env must be ready before any plugin that reads fastify.config
 await fastify.register(fastifyEnv, { schema, dotenv: true, confKey: 'config' })

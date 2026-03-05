@@ -8,3 +8,7 @@ db:
   name: pfuscher_eck
 clientUrl: http://localhost:3000
 jwtSecret: changeme
+
+logging:
+  global:
+    level: silent
