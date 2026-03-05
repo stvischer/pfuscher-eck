@@ -140,3 +140,7 @@ vite.config.ts.timestamp-*
 
 mysql_data
 redis_data
+
+# config environment overrides (contain secrets)
+server/config/development.yml
+server/config/production.yml
