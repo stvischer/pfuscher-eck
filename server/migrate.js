@@ -1,13 +1,13 @@
-import { createConnection } from 'mariadb'
-import { readFileSync } from 'fs'
-import { fileURLToPath } from 'url'
-import { dirname, join } from 'path'
-import { config } from 'dotenv'
+import { createConnection } from 'mariadb';
+import { readFileSync } from 'fs';
+import { fileURLToPath } from 'url';
+import { dirname, join } from 'path';
+import { config } from 'dotenv';
 
-config()
+config();
 
-const __dir = dirname(fileURLToPath(import.meta.url))
-const migrationsDir = join(__dir, 'src', 'db', 'migrations')
+const __dir = dirname(fileURLToPath(import.meta.url));
+const migrationsDir = join(__dir, 'src', 'db', 'migrations');
 
 const migrations = [
   '001_create_users.sql',
@@ -35,38 +35,39 @@ const migrations = [
   '023_create_repair_requests.sql',
   '024_normalize_repair_requests.sql',
   '025_add_is_active_to_repair_requests.sql',
-]
+];
 
+/* eslint-disable no-console */
 const conn = await createConnection({
-  host:     process.env.DB_HOST     || 'localhost',
-  port:     Number(process.env.DB_PORT) || 3306,
-  user:     process.env.DB_USER     || 'root',
+  host: process.env.DB_HOST || 'localhost',
+  port: Number(process.env.DB_PORT) || 3306,
+  user: process.env.DB_USER || 'root',
   password: process.env.DB_PASSWORD || '',
-})
+});
 
-console.log('Connected to MariaDB')
+console.log('Connected to MariaDB');
 
 // Create database
 await conn.query(
-  `CREATE DATABASE IF NOT EXISTS \`${process.env.DB_NAME}\` CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci`
-)
-console.log(`Database \`${process.env.DB_NAME}\` ready`)
+  `CREATE DATABASE IF NOT EXISTS \`${process.env.DB_NAME}\` CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci`,
+);
+console.log(`Database \`${process.env.DB_NAME}\` ready`);
 
-await conn.query(`USE \`${process.env.DB_NAME}\``)
+await conn.query(`USE \`${process.env.DB_NAME}\``);
 
 for (const file of migrations) {
-  const sql = readFileSync(join(migrationsDir, file), 'utf8')
+  const sql = readFileSync(join(migrationsDir, file), 'utf8');
   // Split on semicolons to run each statement individually
   const statements = sql
     .split(';')
     .map((s) => s.trim())
-    .filter(Boolean)
+    .filter(Boolean);
 
   for (const stmt of statements) {
-    await conn.query(stmt)
+    await conn.query(stmt);
   }
-  console.log(`  ✓ ${file}`)
+  console.log(`  ✓ ${file}`);
 }
 
-await conn.end()
-console.log('Done.')
+await conn.end();
+console.log('Done.');

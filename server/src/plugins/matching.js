@@ -19,7 +19,8 @@ class User {
    * @param {number} id - The user ID to create a matching point for.
    */
   async add(id) {
-    await this.fastify.query(`
+    await this.fastify.query(
+      `
       INSERT INTO matching_points (type, entity_id, location)
       SELECT 
           'user', 
@@ -29,7 +30,9 @@ class User {
       JOIN addresses a ON a.id = ua.address_id
       WHERE ua.user_id = ?
         AND ua.address_type = 'home';
-    `, [id]);
+    `,
+      [id],
+    );
   }
 
   /**
@@ -60,7 +63,8 @@ class Repair {
    * @param {number} id - The repair request ID to create a matching point for.
    */
   async add(id) {
-    await this.fastify.query(`
+    await this.fastify.query(
+      `
       INSERT INTO matching_points (type, entity_id, location)
       SELECT 
           'repair', 
@@ -69,7 +73,9 @@ class Repair {
       FROM repair_request_addresses rra
       JOIN addresses a ON a.id = rra.address_id
       WHERE rra.request_id = ?
-    `, [id]);
+    `,
+      [id],
+    );
   }
 
   /**
@@ -100,7 +106,8 @@ class Meeting {
    * @param {number} id - The meeting ID to create a matching point for.
    */
   async add(id) {
-    await this.fastify.query(`
+    await this.fastify.query(
+      `
       INSERT INTO matching_points (type, entity_id, location)
       SELECT 
           'meeting', 
@@ -109,7 +116,9 @@ class Meeting {
       FROM meeting_addresses ma
       JOIN addresses a ON a.id = ma.address_id
       WHERE ma.meeting_id = ?
-    `, [id]);
+    `,
+      [id],
+    );
   }
 
   /**
@@ -117,7 +126,10 @@ class Meeting {
    * @param {number} id - The meeting ID whose matching point should be deleted.
    */
   async remove(id) {
-    await this.fastify.query(`DELETE FROM matching_points WHERE type = 'meeting' AND entity_id = ?`, [id]);
+    await this.fastify.query(
+      `DELETE FROM matching_points WHERE type = 'meeting' AND entity_id = ?`,
+      [id],
+    );
   }
 }
 
@@ -144,9 +156,9 @@ class Mapping {
  * @param {import('fastify').FastifyInstance} fastify
  * @param {object} opts - Plugin options (currently unused).
  */
-async function mappingPlugin(fastify, opts) {
+async function mappingPlugin(fastify, _opts) {
   const mapping = new Mapping(fastify);
-  
+
   // Die Klasse unter dem Namen 'mapping' an Fastify binden
   fastify.decorate('mapping', mapping);
 }

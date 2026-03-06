@@ -1,6 +1,5 @@
 <template>
   <div class="chat-room-list column fit">
-
     <!-- Header -->
     <div class="q-pa-md row items-center justify-between">
       <span class="text-subtitle1 text-weight-bold">Chats</span>
@@ -15,7 +14,10 @@
     </div>
 
     <!-- Empty -->
-    <div v-else-if="rooms.length === 0" class="col column items-center justify-center text-grey text-caption q-pa-md text-center">
+    <div
+      v-else-if="rooms.length === 0"
+      class="col column items-center justify-center text-grey text-caption q-pa-md text-center"
+    >
       No chats yet.
     </div>
 
@@ -25,15 +27,19 @@
         <q-item
           v-for="room in rooms"
           :key="room.id"
-          clickable
           v-ripple
+          clickable
           :active="modelValue === room.id"
           active-class="chat-room-list__item--active"
           class="rounded-borders q-mb-xs"
           @click="$emit('update:modelValue', room.id)"
         >
           <q-item-section avatar>
-            <q-avatar :color="room.visibility === 'public' ? 'teal' : 'indigo'" text-color="white" size="38px">
+            <q-avatar
+              :color="room.visibility === 'public' ? 'teal' : 'indigo'"
+              text-color="white"
+              size="38px"
+            >
               <q-icon :name="room.type === 'direct' ? 'person' : 'group'" />
             </q-avatar>
           </q-item-section>
@@ -52,57 +58,57 @@
         </q-item>
       </q-list>
     </q-scroll-area>
-
   </div>
 </template>
 
 <script setup>
-import { ref, reactive, onMounted, watch } from 'vue'
-import { api } from '../../composables/useApi.js'
-import { useSocket } from '../../composables/useSocket.js'
+import { ref, reactive, onMounted, watch } from 'vue';
+import { api } from '../../composables/useApi.js';
+import { useSocket } from '../../composables/useSocket.js';
 
 const props = defineProps({
   modelValue: { type: String, default: null }, // selected room id
-})
-const emit = defineEmits(['update:modelValue', 'create'])
+});
+defineEmits(['update:modelValue', 'create']);
 
-const rooms   = ref([])
-const loading = ref(true)
-const unread  = reactive({})
+const rooms = ref([]);
+const loading = ref(true);
+const unread = reactive({});
 
-const { socket } = useSocket()
+const { socket } = useSocket();
 
 function roomLabel(room) {
-  return room.name ?? (room.type === 'direct' ? 'Direct Message' : 'Group Chat')
+  return room.name ?? (room.type === 'direct' ? 'Direct Message' : 'Group Chat');
 }
 
 async function fetchRooms() {
-  loading.value = true
+  loading.value = true;
   try {
-    rooms.value = await api.get('/chat/rooms')
+    rooms.value = await api.get('/chat/rooms');
   } catch {
-    rooms.value = []
+    rooms.value = [];
   } finally {
-    loading.value = false
+    loading.value = false;
   }
 }
 
 // Increment unread badge when a message arrives in a non-active room
 socket.on('message:new', (msg) => {
   if (msg.chatId !== props.modelValue) {
-    unread[msg.chatId] = (unread[msg.chatId] ?? 0) + 1
+    unread[msg.chatId] = (unread[msg.chatId] ?? 0) + 1;
   }
-})
+});
 
 // Clear unread when room is selected
-watch(() => props.modelValue, (id) => {
-  if (id) delete unread[id]
-})
+watch(
+  () => props.modelValue,
+  (id) => {
+    if (id) delete unread[id];
+  },
+);
 
-onMounted(fetchRooms)
+onMounted(fetchRooms);
 
 // Expose so parent can refresh or read rooms
-defineExpose({ fetchRooms, rooms })
+defineExpose({ fetchRooms, rooms });
 </script>
-
-

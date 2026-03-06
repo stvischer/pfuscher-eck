@@ -60,11 +60,11 @@
           <q-item
             v-for="link in navLinks"
             :key="link.name"
+            v-ripple
             :to="{ name: link.name }"
             exact
             active-class="nav-active"
             clickable
-            v-ripple
             class="rounded-borders q-mb-xs"
           >
             <q-item-section avatar>

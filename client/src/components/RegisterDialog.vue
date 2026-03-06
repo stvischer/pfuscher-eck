@@ -1,5 +1,6 @@
 <template>
-  <q-dialog :model-value="modelValue" persistent transition-show="fade" transition-hide="fade"
+  <q-dialog
+:model-value="modelValue" persistent transition-show="fade" transition-hide="fade"
     @update:model-value="$emit('update:modelValue', $event)">
     <q-card style="width: 360px; max-width: 95vw">
       <q-card-section class="row items-center q-pb-none">
@@ -13,7 +14,7 @@
           {{ auth.error }}
         </q-banner>
 
-        <q-form @submit.prevent="submit" autocomplete="off">
+        <q-form autocomplete="off" @submit.prevent="submit">
           <q-input
             v-model="username"
             label="Username"
@@ -42,11 +43,11 @@
             :name="nonce + 'p'"
             autocomplete="new-password"
             :input-attrs="pwReady ? {} : { readonly: '' }"
-            @focus="pwReady = true"
             :rules="[val => !!val || 'Required', val => val.length >= 8 || 'Min 8 characters']"
             class="q-mb-xs"
             outlined
             dense
+            @focus="pwReady = true"
           >
             <template #append>
               <q-icon
@@ -65,11 +66,11 @@
             :name="nonce + 'c'"
             autocomplete="new-password"
             :input-attrs="pwReady ? {} : { readonly: '' }"
-            @focus="pwReady = true"
             :rules="[val => !!val || 'Required', val => val === password || 'Passwords do not match']"
             class="q-mb-md"
             outlined
             dense
+            @focus="pwReady = true"
           />
 
           <q-btn

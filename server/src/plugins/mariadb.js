@@ -1,5 +1,5 @@
-import fp from 'fastify-plugin'
-import { createPool } from 'mariadb'
+import fp from 'fastify-plugin';
+import { createPool } from 'mariadb';
 
 /**
  * Fastify plugin that creates a MariaDB connection pool and decorates the
@@ -17,15 +17,15 @@ import { createPool } from 'mariadb'
  * @param {object} options - Plugin options (currently unused).
  * @returns {Promise<void>}
  */
-async function fastifyMariaDB(fastify, options) {
+async function fastifyMariaDB(fastify, _options) {
   const pool = createPool({
-    host:            fastify.config.DB_HOST,
-    port:            fastify.config.DB_PORT,
-    user:            fastify.config.DB_USER,
-    password:        fastify.config.DB_PASSWORD,
-    database:        fastify.config.DB_NAME,
+    host: fastify.config.DB_HOST,
+    port: fastify.config.DB_PORT,
+    user: fastify.config.DB_USER,
+    password: fastify.config.DB_PASSWORD,
+    database: fastify.config.DB_NAME,
     connectionLimit: 10,
-  })
+  });
 
   /**
    * Database accessor object decorated onto the Fastify instance as `fastify.db`.
@@ -52,12 +52,12 @@ async function fastifyMariaDB(fastify, options) {
      *
      * @returns {Promise<import('mariadb').PoolConnection>} A pool connection.
      */
-    getConnection: () => pool.getConnection()
+    getConnection: () => pool.getConnection(),
   };
 
   fastify.decorate('db', db);
 
-  fastify.addHook('onClose', async (instance) => {
+  fastify.addHook('onClose', async (_instance) => {
     await pool.end();
   });
 }

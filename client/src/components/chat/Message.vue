@@ -1,8 +1,14 @@
 <template>
   <div class="chat-message row no-wrap q-mb-sm" :class="sent ? 'justify-end' : 'justify-start'">
-
     <!-- Avatar (received side) -->
-    <q-avatar v-if="!sent" size="32px" color="grey-7" text-color="white" class="q-mt-xs q-mr-sm" style="flex-shrink:0">
+    <q-avatar
+      v-if="!sent"
+      size="32px"
+      color="grey-7"
+      text-color="white"
+      class="q-mt-xs q-mr-sm"
+      style="flex-shrink: 0"
+    >
       {{ initials }}
     </q-avatar>
 
@@ -15,16 +21,26 @@
 
       <!-- Hover action bar -->
       <div class="chat-message__actions" :class="sent ? 'chat-message__actions--sent' : ''">
-        <q-btn flat round dense size="xs" icon="reply" color="grey-4"
-          @click="$emit('reply', { id: msgId, username, content })" />
+        <q-btn
+          flat
+          round
+          dense
+          size="xs"
+          icon="reply"
+          color="grey-4"
+          @click="$emit('reply', { id: msgId, username, content })"
+        />
         <q-btn flat round dense size="xs" icon="add_reaction" color="grey-4">
           <q-menu auto-close anchor="top middle" self="bottom middle">
             <div class="chat-message__quick-emojis">
               <button
-                v-for="e in QUICK_EMOJIS" :key="e"
+                v-for="e in QUICK_EMOJIS"
+                :key="e"
                 class="chat-message__quick-emoji"
                 @click="$emit('react', { msgId, emoji: e })"
-              >{{ e }}</button>
+              >
+                {{ e }}
+              </button>
             </div>
           </q-menu>
         </q-btn>
@@ -80,38 +96,46 @@
           class="chat-message__reaction"
           :class="{ 'chat-message__reaction--active': r.reacted }"
           @click="$emit('react', { msgId, emoji: r.emoji })"
-        >{{ r.emoji }} {{ r.count }}</button>
+        >
+          {{ r.emoji }} {{ r.count }}
+        </button>
       </div>
 
       <div class="text-caption text-grey-5 q-mt-xs">{{ stamp }}</div>
     </div>
 
     <!-- Avatar (sent side) -->
-    <q-avatar v-if="sent" size="32px" color="primary" text-color="white" class="q-mt-xs q-ml-sm" style="flex-shrink:0">
+    <q-avatar
+      v-if="sent"
+      size="32px"
+      color="primary"
+      text-color="white"
+      class="q-mt-xs q-ml-sm"
+      style="flex-shrink: 0"
+    >
       {{ initials }}
     </q-avatar>
-
   </div>
 </template>
 
 <script setup>
-import { computed } from 'vue'
+import { computed } from 'vue';
 
-const QUICK_EMOJIS = ['👍', '❤️', '😂', '😮', '😢', '👏', '🔥', '🎉']
+const QUICK_EMOJIS = ['👍', '❤️', '😂', '😮', '😢', '👏', '🔥', '🎉'];
 
 const props = defineProps({
-  msgId:         { type: [Number, String], required: true },
-  username:      { type: String, required: true },
-  content:       { type: String, default: '' },
-  stamp:         { type: String, default: '' },
-  sent:          { type: Boolean, default: false },
-  attachment:    { type: Array, default: () => [] },
-  replyTo:       { type: Object, default: null },   // { username, content }
-  reactions:     { type: Array,  default: () => [] }, // [{ emoji, userId }]
+  msgId: { type: [Number, String], required: true },
+  username: { type: String, required: true },
+  content: { type: String, default: '' },
+  stamp: { type: String, default: '' },
+  sent: { type: Boolean, default: false },
+  attachment: { type: Array, default: () => [] },
+  replyTo: { type: Object, default: null }, // { username, content }
+  reactions: { type: Array, default: () => [] }, // [{ emoji, userId }]
   currentUserId: { type: Number, default: null },
-})
+});
 
-const emit = defineEmits(['reply', 'react'])
+defineEmits(['reply', 'react']);
 
 const initials = computed(() =>
   props.username
@@ -119,23 +143,21 @@ const initials = computed(() =>
     .map((w) => w[0]?.toUpperCase() ?? '')
     .slice(0, 2)
     .join(''),
-)
+);
 
 const groupedReactions = computed(() => {
-  const map = {}
+  const map = {};
   for (const r of props.reactions) {
-    if (!map[r.emoji]) map[r.emoji] = { emoji: r.emoji, count: 0, reacted: false }
-    map[r.emoji].count++
-    if (Number(r.userId) === props.currentUserId) map[r.emoji].reacted = true
+    if (!map[r.emoji]) map[r.emoji] = { emoji: r.emoji, count: 0, reacted: false };
+    map[r.emoji].count++;
+    if (Number(r.userId) === props.currentUserId) map[r.emoji].reacted = true;
   }
-  return Object.values(map)
-})
+  return Object.values(map);
+});
 
 function formatSize(bytes) {
-  if (bytes < 1024) return `${bytes} B`
-  if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(1)} KB`
-  return `${(bytes / (1024 * 1024)).toFixed(1)} MB`
+  if (bytes < 1024) return `${bytes} B`;
+  if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(1)} KB`;
+  return `${(bytes / (1024 * 1024)).toFixed(1)} MB`;
 }
 </script>
-
-

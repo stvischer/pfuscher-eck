@@ -108,7 +108,7 @@
         <q-card-section class="row items-center q-pb-none">
           <div class="text-subtitle2">Pick an emoji</div>
           <q-space />
-          <q-btn icon="close" flat round dense v-close-popup />
+          <q-btn v-close-popup icon="close" flat round dense />
         </q-card-section>
         <q-card-section class="q-pt-sm">
           <EmojiPicker

@@ -141,7 +141,7 @@ export default async function usersRoutes(fastify) {
         )
         if (!rows[0]) return reply.code(404).send({ message: 'User not found' })
         const [addresses, skills] = await Promise.all([
-          loadAddresses(conn, id),
+          fastify.entity.user.loadAddresses(id),
           loadSkills(conn, id),
         ])
         reply.send(mapUser(rows[0], addresses, skills))

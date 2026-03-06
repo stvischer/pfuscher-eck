@@ -4,7 +4,7 @@
       <div class="text-subtitle1 text-weight-medium q-mb-xs">Account info</div>
       <div class="text-caption text-grey q-mb-md">Your login credentials and public display name.</div>
 
-      <q-form @submit.prevent="save" class="q-gutter-y-sm">
+      <q-form class="q-gutter-y-sm" @submit.prevent="save">
         <div class="row q-col-gutter-sm">
           <div class="col-12 col-sm-6">
             <q-input
@@ -72,7 +72,7 @@
       </q-card-section>
 
       <q-card-section class="q-pt-none">
-        <q-form ref="pwFormRef" @submit.prevent="savePw" class="q-gutter-y-sm" autocomplete="off">
+        <q-form ref="pwFormRef" class="q-gutter-y-sm" autocomplete="off" @submit.prevent="savePw">
           <q-input
             v-model="pw.current"
             label="Current password"
@@ -80,9 +80,9 @@
             :name="pwNonce + 'a'"
             autocomplete="new-password"
             :input-attrs="pwReady ? {} : { readonly: '' }"
+            outlined
+            dense autofocus :rules="[v => !!v || 'Required']"
             @focus="pwReady = true"
-            outlined dense autofocus
-            :rules="[v => !!v || 'Required']"
           >
             <template #append>
               <q-icon :name="showCurrent ? 'visibility_off' : 'visibility'" class="cursor-pointer" @click="showCurrent = !showCurrent" />
@@ -96,9 +96,9 @@
             :name="pwNonce + 'b'"
             autocomplete="new-password"
             :input-attrs="pwReady ? {} : { readonly: '' }"
+            outlined
+            dense :rules="[v => (v && v.length >= 8) || 'Min 8 characters']"
             @focus="pwReady = true"
-            outlined dense
-            :rules="[v => (v && v.length >= 8) || 'Min 8 characters']"
           >
             <template #append>
               <q-icon :name="showNext ? 'visibility_off' : 'visibility'" class="cursor-pointer" @click="showNext = !showNext" />
@@ -113,9 +113,9 @@
             :name="pwNonce + 'c'"
             autocomplete="new-password"
             :input-attrs="pwReady ? {} : { readonly: '' }"
+            outlined
+            dense :rules="[v => v === pw.next || 'Passwords do not match']"
             @focus="pwReady = true"
-            outlined dense
-            :rules="[v => v === pw.next || 'Passwords do not match']"
           />
         </q-form>
       </q-card-section>

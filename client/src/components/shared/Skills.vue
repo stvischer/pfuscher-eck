@@ -34,12 +34,12 @@
     </div>
     <q-tree
       v-else
+      v-model:ticked="tickedIds"
+      v-model:expanded="expandedIds"
       :nodes="visibleTree"
       node-key="id"
       label-key="name"
       tick-strategy="leaf"
-      v-model:ticked="tickedIds"
-      v-model:expanded="expandedIds"
     />
   </div>
 </template>
