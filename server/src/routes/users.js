@@ -1,5 +1,4 @@
 export default async function usersRoutes(fastify) {
-
   // ── helpers ────────────────────────────────────────────────────────────────
 
   /** Load all skills for a user from user_skills + cnf_skills. */
@@ -12,13 +11,13 @@ export default async function usersRoutes(fastify) {
        WHERE  us.user_id = ?
        ORDER  BY p.name, cs.name`,
       [userId],
-    )
-    return rows.map(r => ({
-      skillId:  Number(r.skill_id),
-      name:     r.name,
+    );
+    return rows.map((r) => ({
+      skillId: Number(r.skill_id),
+      name: r.name,
       category: r.category ?? null,
-      level:    r.level,
-    }))
+      level: r.level,
+    }));
   }
 
   /** Load all addresses for a user and return them as plain objects. */
@@ -41,84 +40,106 @@ export default async function usersRoutes(fastify) {
        WHERE  ua.user_id = ?
        ORDER  BY ua.id`,
       [userId],
-    )
-    return rows.map(mapAddress)
+    );
+    return rows.map(mapAddress);
   }
 
   /** Upsert a single address + its user_addresses relation row. */
-  async function upsertAddress(conn, userId, { addressType = 'home', radiusM, street, city, state, postalCode, country, lat, lon }) {
+  async function upsertAddress(
+    conn,
+    userId,
+    { addressType = 'home', radiusM, street, city, state, postalCode, country, lat, lon },
+  ) {
     const [existing] = await conn.query(
       'SELECT ua.id AS rel_id, ua.address_id FROM user_addresses ua WHERE ua.user_id = ? AND ua.address_type = ? LIMIT 1',
       [userId, addressType],
-    )
+    );
 
     if (existing) {
       // Only touch columns that were explicitly supplied — never overwrite with NULL
       // unless the caller deliberately sent null.
-      const addrFields = []
-      const addrValues = []
-      if (street     !== undefined) { addrFields.push('street = ?');      addrValues.push(street || null) }
-      if (city       !== undefined) { addrFields.push('city = ?');        addrValues.push(city || null) }
-      if (state      !== undefined) { addrFields.push('state = ?');       addrValues.push(state || null) }
-      if (postalCode !== undefined) { addrFields.push('postal_code = ?'); addrValues.push(postalCode || null) }
-      if (country    !== undefined) { addrFields.push('country = ?');     addrValues.push(country || null) }
+      const addrFields = [];
+      const addrValues = [];
+      if (street !== undefined) {
+        addrFields.push('street = ?');
+        addrValues.push(street || null);
+      }
+      if (city !== undefined) {
+        addrFields.push('city = ?');
+        addrValues.push(city || null);
+      }
+      if (state !== undefined) {
+        addrFields.push('state = ?');
+        addrValues.push(state || null);
+      }
+      if (postalCode !== undefined) {
+        addrFields.push('postal_code = ?');
+        addrValues.push(postalCode || null);
+      }
+      if (country !== undefined) {
+        addrFields.push('country = ?');
+        addrValues.push(country || null);
+      }
       // Update geometry only when at least one coordinate was supplied
       if (lat !== undefined || lon !== undefined) {
         addrFields.push(
           lat != null && lon != null
             ? `location = ST_GeomFromText('POINT(${Number(lon)} ${Number(lat)})', 4326)`
             : 'location = NULL',
-        )
+        );
       }
       if (addrFields.length > 0) {
-        addrValues.push(existing.address_id)
-        await conn.query(`UPDATE addresses SET ${addrFields.join(', ')} WHERE id = ?`, addrValues)
+        addrValues.push(existing.address_id);
+        await conn.query(`UPDATE addresses SET ${addrFields.join(', ')} WHERE id = ?`, addrValues);
       }
       if (radiusM !== undefined) {
-        await conn.query('UPDATE user_addresses SET radius_m = ? WHERE id = ?', [radiusM ?? null, existing.rel_id])
+        await conn.query('UPDATE user_addresses SET radius_m = ? WHERE id = ?', [
+          radiusM ?? null,
+          existing.rel_id,
+        ]);
       }
-      return false // updated
+      return false; // updated
     } else {
       // New record — initialise all columns (NULL for anything not provided)
-      const locationExpr = (lat != null && lon != null)
-        ? `ST_GeomFromText('POINT(${Number(lon)} ${Number(lat)})', 4326)`
-        : 'NULL'
+      const locationExpr =
+        lat != null && lon != null
+          ? `ST_GeomFromText('POINT(${Number(lon)} ${Number(lat)})', 4326)`
+          : 'NULL';
       const res = await conn.query(
         `INSERT INTO addresses (street, city, state, postal_code, country, location)
          VALUES (?, ?, ?, ?, ?, ${locationExpr})`,
         [street ?? null, city ?? null, state ?? null, postalCode ?? null, country ?? null],
-      )
+      );
       await conn.query(
         'INSERT INTO user_addresses (user_id, address_id, address_type, radius_m) VALUES (?, ?, ?, ?)',
         [userId, Number(res.insertId), addressType, radiusM ?? null],
-      )
-      return true // created
+      );
+      return true; // created
     }
   }
 
   // ── GET /api/skills ──────────────────────────────────────────────────────
-  fastify.get(
-    '/api/skills',
-    async (_request, reply) => {
-      const conn = await fastify.db.getConnection()
-      try {
-        const rows = await conn.query(
-          `SELECT cs.id, cs.name, p.name AS category
+  fastify.get('/api/skills', async (_request, reply) => {
+    const conn = await fastify.db.getConnection();
+    try {
+      const rows = await conn.query(
+        `SELECT cs.id, cs.name, p.name AS category
            FROM   cnf_skills cs
            LEFT JOIN cnf_skills p ON p.id = cs.parent_id
            WHERE  cs.parent_id IS NOT NULL
            ORDER  BY p.name, cs.name`,
-        )
-        reply.send(rows.map(r => ({ id: Number(r.id), name: r.name, category: r.category ?? null })))
-      } finally {
-        conn.release()
-      }
-    },
-  )
+      );
+      reply.send(
+        rows.map((r) => ({ id: Number(r.id), name: r.name, category: r.category ?? null })),
+      );
+    } finally {
+      conn.release();
+    }
+  });
 
-  // ── GET /api/users/:id ─────────────────────────────────────────────────────
+  // ── GET /api/user/:id ─────────────────────────────────────────────────────
   fastify.get(
-    '/api/users/:id',
+    '/api/user/:id',
     {
       preHandler: [fastify.authenticate],
       schema: {
@@ -130,32 +151,32 @@ export default async function usersRoutes(fastify) {
       },
     },
     async (request, reply) => {
-      const id = request.params.id
-      if (id !== request.user.id) return reply.code(403).send({ message: 'Forbidden' })
+      const id = request.params.id;
+      if (id !== request.user.id) return reply.code(403).send({ message: 'Forbidden' });
 
-      const conn = await fastify.db.getConnection()
+      const conn = await fastify.db.getConnection();
       try {
         const rows = await conn.query(
           'SELECT id, username, display_name, email, role, bio, phone, created_at FROM users WHERE id = ? LIMIT 1',
           [id],
-        )
-        if (!rows[0]) return reply.code(404).send({ message: 'User not found' })
+        );
+        if (!rows[0]) return reply.code(404).send({ message: 'User not found' });
         const [addresses, skills] = await Promise.all([
           fastify.entity.user.loadAddresses(id),
           loadSkills(conn, id),
-        ])
-        reply.send(mapUser(rows[0], addresses, skills))
+        ]);
+        reply.send(mapUser(rows[0], addresses, skills));
       } finally {
-        conn.release()
+        conn.release();
       }
     },
-  )
+  );
 
-  // ── PATCH /api/users/:id ───────────────────────────────────────────────────
+  // ── PATCH /api/user/:id ───────────────────────────────────────────────────
   // Updates profile fields only (username, displayName, email, bio, phone,
-  // skills).  Address data is managed via /api/users/:id/addresses.
+  // skills).  Address data is managed via /api/user/:id/addresses.
   fastify.patch(
-    '/api/users/:id',
+    '/api/user/:id',
     {
       preHandler: [fastify.authenticate],
       schema: {
@@ -167,18 +188,18 @@ export default async function usersRoutes(fastify) {
         body: {
           type: 'object',
           properties: {
-            username:    { type: 'string', minLength: 3, maxLength: 50 },
+            username: { type: 'string', minLength: 3, maxLength: 50 },
             displayName: { type: 'string', maxLength: 100 },
-            email:       { type: 'string', format: 'email' },
-            bio:         { type: 'string', maxLength: 1000 },
-            phone:       { type: 'string', maxLength: 30 },
+            email: { type: 'string', format: 'email' },
+            bio: { type: 'string', maxLength: 1000 },
+            phone: { type: 'string', maxLength: 30 },
             skills: {
               type: 'array',
               items: {
                 type: 'object',
                 properties: {
                   skillId: { type: 'integer', minimum: 1 },
-                  level:   { type: 'string', enum: ['beginner', 'intermediate', 'expert'] },
+                  level: { type: 'string', enum: ['beginner', 'intermediate', 'expert'] },
                 },
                 required: ['skillId'],
               },
@@ -188,68 +209,83 @@ export default async function usersRoutes(fastify) {
       },
     },
     async (request, reply) => {
-      const id = request.params.id
-      if (id !== request.user.id) return reply.code(403).send({ message: 'Forbidden' })
+      const id = request.params.id;
+      if (id !== request.user.id) return reply.code(403).send({ message: 'Forbidden' });
 
-      const { username, displayName, email, bio, phone, skills } = request.body ?? {}
+      const { username, displayName, email, bio, phone, skills } = request.body ?? {};
 
-      if ([username, displayName, email, bio, phone, skills].every(v => v === undefined)) {
-        return reply.code(400).send({ message: 'Nothing to update' })
+      if ([username, displayName, email, bio, phone, skills].every((v) => v === undefined)) {
+        return reply.code(400).send({ message: 'Nothing to update' });
       }
 
-      const conn = await fastify.db.getConnection()
+      const conn = await fastify.db.getConnection();
       try {
         if (username !== undefined || email !== undefined) {
           const conflict = await conn.query(
             'SELECT id FROM users WHERE (username = ? OR email = ?) AND id != ? LIMIT 1',
             [username ?? '', email ?? '', id],
-          )
+          );
           if (conflict.length > 0) {
-            return reply.code(409).send({ message: 'Username or email already in use' })
+            return reply.code(409).send({ message: 'Username or email already in use' });
           }
         }
 
-        const fields = []
-        const values = []
-        if (username    !== undefined) { fields.push('username = ?');     values.push(username) }
-        if (displayName !== undefined) { fields.push('display_name = ?'); values.push(displayName || null) }
-        if (email       !== undefined) { fields.push('email = ?');        values.push(email) }
-        if (bio         !== undefined) { fields.push('bio = ?');          values.push(bio || null) }
-        if (phone       !== undefined) { fields.push('phone = ?');        values.push(phone || null) }
-        values.push(id)
+        const fields = [];
+        const values = [];
+        if (username !== undefined) {
+          fields.push('username = ?');
+          values.push(username);
+        }
+        if (displayName !== undefined) {
+          fields.push('display_name = ?');
+          values.push(displayName || null);
+        }
+        if (email !== undefined) {
+          fields.push('email = ?');
+          values.push(email);
+        }
+        if (bio !== undefined) {
+          fields.push('bio = ?');
+          values.push(bio || null);
+        }
+        if (phone !== undefined) {
+          fields.push('phone = ?');
+          values.push(phone || null);
+        }
+        values.push(id);
 
         if (fields.length > 0) {
-          await conn.query(`UPDATE users SET ${fields.join(', ')} WHERE id = ?`, values)
+          await conn.query(`UPDATE users SET ${fields.join(', ')} WHERE id = ?`, values);
         }
 
         if (skills !== undefined) {
-          await conn.query('DELETE FROM user_skills WHERE user_id = ?', [id])
+          await conn.query('DELETE FROM user_skills WHERE user_id = ?', [id]);
           for (const s of skills) {
             await conn.query(
               'INSERT INTO user_skills (user_id, skill_id, level) VALUES (?, ?, ?)',
               [id, s.skillId, s.level ?? 'beginner'],
-            )
+            );
           }
         }
 
         const rows = await conn.query(
           'SELECT id, username, display_name, email, role, bio, phone, created_at FROM users WHERE id = ? LIMIT 1',
           [id],
-        )
+        );
         const [addresses, userSkills] = await Promise.all([
           loadAddresses(conn, id),
           loadSkills(conn, id),
-        ])
-        reply.send(mapUser(rows[0], addresses, userSkills))
+        ]);
+        reply.send(mapUser(rows[0], addresses, userSkills));
       } finally {
-        conn.release()
+        conn.release();
       }
     },
-  )
+  );
 
-  // ── GET /api/users/:id/addresses ──────────────────────────────────────────
+  // ── GET /api/user/:id/addresses ──────────────────────────────────────────
   fastify.get(
-    '/api/users/:id/addresses',
+    '/api/user/:id/addresses',
     {
       preHandler: [fastify.authenticate],
       schema: {
@@ -261,21 +297,21 @@ export default async function usersRoutes(fastify) {
       },
     },
     async (request, reply) => {
-      const id = request.params.id
-      if (id !== request.user.id) return reply.code(403).send({ message: 'Forbidden' })
+      const id = request.params.id;
+      if (id !== request.user.id) return reply.code(403).send({ message: 'Forbidden' });
 
-      const conn = await fastify.db.getConnection()
+      const conn = await fastify.db.getConnection();
       try {
-        reply.send(await loadAddresses(conn, id))
+        reply.send(await loadAddresses(conn, id));
       } finally {
-        conn.release()
+        conn.release();
       }
     },
-  )
+  );
 
-  // ── POST /api/users/:id/addresses ─────────────────────────────────────────
+  // ── POST /api/user/:id/addresses ─────────────────────────────────────────
   fastify.post(
-    '/api/users/:id/addresses',
+    '/api/user/:id/addresses',
     {
       preHandler: [fastify.authenticate],
       schema: {
@@ -288,45 +324,65 @@ export default async function usersRoutes(fastify) {
           type: 'object',
           properties: {
             addressType: { type: 'string', maxLength: 50 },
-            radiusM:     { type: ['integer', 'null'], minimum: 0 },
-            street:      { type: 'string', maxLength: 255 },
-            city:        { type: 'string', maxLength: 100 },
-            state:       { type: 'string', maxLength: 100 },
-            postalCode:  { type: 'string', maxLength: 20 },
-            country:     { type: 'string', maxLength: 100 },
-            lat:         { type: ['number', 'null'] },
-            lon:         { type: ['number', 'null'] },
+            radiusM: { type: ['integer', 'null'], minimum: 0 },
+            street: { type: 'string', maxLength: 255 },
+            city: { type: 'string', maxLength: 100 },
+            state: { type: 'string', maxLength: 100 },
+            postalCode: { type: 'string', maxLength: 20 },
+            country: { type: 'string', maxLength: 100 },
+            lat: { type: ['number', 'null'] },
+            lon: { type: ['number', 'null'] },
           },
         },
       },
     },
     async (request, reply) => {
-      const id = request.params.id
-      if (id !== request.user.id) return reply.code(403).send({ message: 'Forbidden' })
+      const id = request.params.id;
+      if (id !== request.user.id) return reply.code(403).send({ message: 'Forbidden' });
 
-      const { addressType = 'home', radiusM, street, city, state, postalCode, country, lat, lon } = request.body ?? {}
+      const {
+        addressType = 'home',
+        radiusM,
+        street,
+        city,
+        state,
+        postalCode,
+        country,
+        lat,
+        lon,
+      } = request.body ?? {};
 
-      const conn = await fastify.db.getConnection()
+      const conn = await fastify.db.getConnection();
       try {
-        const created = await upsertAddress(conn, id, { addressType, radiusM, street, city, state, postalCode, country, lat, lon })
-        reply.code(created ? 201 : 200).send(await loadAddresses(conn, id))
+        const created = await upsertAddress(conn, id, {
+          addressType,
+          radiusM,
+          street,
+          city,
+          state,
+          postalCode,
+          country,
+          lat,
+          lon,
+        });
+        reply.code(created ? 201 : 200).send(await loadAddresses(conn, id));
       } finally {
-        conn.release()
+        conn.release();
       }
     },
-  )
+  );
 
-  // ── PATCH /api/users/:id/addresses/:aid ───────────────────────────────────
+  // ── PATCH /api/user/:id/addresses/:aid ───────────────────────────────────
   // :aid is user_addresses.id (the relation row id)
   fastify.patch(
-    '/api/users/:id/addresses/:aid',
+    '/api/user/:id/addresses/:aid',
     {
       preHandler: [fastify.authenticate],
       schema: {
         params: {
           type: 'object',
           properties: {
-            id:  { type: 'integer', minimum: 1 },
+            id: { type: 'integer', minimum: 1 },
             aid: { type: 'integer', minimum: 1 },
           },
           required: ['id', 'aid'],
@@ -335,78 +391,106 @@ export default async function usersRoutes(fastify) {
           type: 'object',
           properties: {
             addressType: { type: 'string', maxLength: 50 },
-            radiusM:     { type: ['integer', 'null'], minimum: 0 },
-            street:      { type: 'string', maxLength: 255 },
-            city:        { type: 'string', maxLength: 100 },
-            state:       { type: 'string', maxLength: 100 },
-            postalCode:  { type: 'string', maxLength: 20 },
-            country:     { type: 'string', maxLength: 100 },
-            lat:         { type: ['number', 'null'] },
-            lon:         { type: ['number', 'null'] },
+            radiusM: { type: ['integer', 'null'], minimum: 0 },
+            street: { type: 'string', maxLength: 255 },
+            city: { type: 'string', maxLength: 100 },
+            state: { type: 'string', maxLength: 100 },
+            postalCode: { type: 'string', maxLength: 20 },
+            country: { type: 'string', maxLength: 100 },
+            lat: { type: ['number', 'null'] },
+            lon: { type: ['number', 'null'] },
           },
         },
       },
     },
     async (request, reply) => {
-      const id  = request.params.id
-      const aid = request.params.aid
-      if (id !== request.user.id) return reply.code(403).send({ message: 'Forbidden' })
+      const id = request.params.id;
+      const aid = request.params.aid;
+      if (id !== request.user.id) return reply.code(403).send({ message: 'Forbidden' });
 
-      const conn = await fastify.db.getConnection()
+      const conn = await fastify.db.getConnection();
       try {
         const [rel] = await conn.query(
           'SELECT ua.id, ua.address_id FROM user_addresses ua WHERE ua.id = ? AND ua.user_id = ? LIMIT 1',
           [aid, id],
-        )
-        if (!rel) return reply.code(404).send({ message: 'Address not found' })
+        );
+        if (!rel) return reply.code(404).send({ message: 'Address not found' });
 
-        const { addressType, radiusM, street, city, state, postalCode, country, lat, lon } = request.body ?? {}
+        const { addressType, radiusM, street, city, state, postalCode, country, lat, lon } =
+          request.body ?? {};
 
-        const addrFields = []
-        const addrValues = []
-        if (street     !== undefined) { addrFields.push('street = ?');      addrValues.push(street || null) }
-        if (city       !== undefined) { addrFields.push('city = ?');        addrValues.push(city || null) }
-        if (state      !== undefined) { addrFields.push('state = ?');       addrValues.push(state || null) }
-        if (postalCode !== undefined) { addrFields.push('postal_code = ?'); addrValues.push(postalCode || null) }
-        if (country    !== undefined) { addrFields.push('country = ?');     addrValues.push(country || null) }
+        const addrFields = [];
+        const addrValues = [];
+        if (street !== undefined) {
+          addrFields.push('street = ?');
+          addrValues.push(street || null);
+        }
+        if (city !== undefined) {
+          addrFields.push('city = ?');
+          addrValues.push(city || null);
+        }
+        if (state !== undefined) {
+          addrFields.push('state = ?');
+          addrValues.push(state || null);
+        }
+        if (postalCode !== undefined) {
+          addrFields.push('postal_code = ?');
+          addrValues.push(postalCode || null);
+        }
+        if (country !== undefined) {
+          addrFields.push('country = ?');
+          addrValues.push(country || null);
+        }
         if (lat !== undefined && lon !== undefined) {
           addrFields.push(
             lat != null && lon != null
               ? `location = ST_GeomFromText('POINT(${Number(lon)} ${Number(lat)})', 4326)`
               : 'location = NULL',
-          )
+          );
         }
         if (addrFields.length > 0) {
-          addrValues.push(rel.address_id)
-          await conn.query(`UPDATE addresses SET ${addrFields.join(', ')} WHERE id = ?`, addrValues)
+          addrValues.push(rel.address_id);
+          await conn.query(
+            `UPDATE addresses SET ${addrFields.join(', ')} WHERE id = ?`,
+            addrValues,
+          );
         }
 
-        const relFields = []
-        const relValues = []
-        if (addressType !== undefined) { relFields.push('address_type = ?'); relValues.push(addressType) }
-        if (radiusM     !== undefined) { relFields.push('radius_m = ?');     relValues.push(radiusM ?? null) }
+        const relFields = [];
+        const relValues = [];
+        if (addressType !== undefined) {
+          relFields.push('address_type = ?');
+          relValues.push(addressType);
+        }
+        if (radiusM !== undefined) {
+          relFields.push('radius_m = ?');
+          relValues.push(radiusM ?? null);
+        }
         if (relFields.length > 0) {
-          relValues.push(rel.id)
-          await conn.query(`UPDATE user_addresses SET ${relFields.join(', ')} WHERE id = ?`, relValues)
+          relValues.push(rel.id);
+          await conn.query(
+            `UPDATE user_addresses SET ${relFields.join(', ')} WHERE id = ?`,
+            relValues,
+          );
         }
 
-        reply.send(await loadAddresses(conn, id))
+        reply.send(await loadAddresses(conn, id));
       } finally {
-        conn.release()
+        conn.release();
       }
     },
-  )
+  );
 
-  // ── DELETE /api/users/:id/addresses/:aid ──────────────────────────────────
+  // ── DELETE //:id/addresses/:aid ──────────────────────────────────
   fastify.delete(
-    '/api/users/:id/addresses/:aid',
+    '/api/user/:id/addresses/:aid',
     {
       preHandler: [fastify.authenticate],
       schema: {
         params: {
           type: 'object',
           properties: {
-            id:  { type: 'integer', minimum: 1 },
+            id: { type: 'integer', minimum: 1 },
             aid: { type: 'integer', minimum: 1 },
           },
           required: ['id', 'aid'],
@@ -414,58 +498,58 @@ export default async function usersRoutes(fastify) {
       },
     },
     async (request, reply) => {
-      const id  = request.params.id
-      const aid = request.params.aid
-      if (id !== request.user.id) return reply.code(403).send({ message: 'Forbidden' })
+      const id = request.params.id;
+      const aid = request.params.aid;
+      if (id !== request.user.id) return reply.code(403).send({ message: 'Forbidden' });
 
-      const conn = await fastify.db.getConnection()
+      const conn = await fastify.db.getConnection();
       try {
         const [rel] = await conn.query(
           'SELECT ua.id, ua.address_id FROM user_addresses ua WHERE ua.id = ? AND ua.user_id = ? LIMIT 1',
           [aid, id],
-        )
-        if (!rel) return reply.code(404).send({ message: 'Address not found' })
+        );
+        if (!rel) return reply.code(404).send({ message: 'Address not found' });
 
-        await conn.query('DELETE FROM user_addresses WHERE id = ?', [rel.id])
-        await conn.query('DELETE FROM addresses WHERE id = ?', [rel.address_id])
+        await conn.query('DELETE FROM user_addresses WHERE id = ?', [rel.id]);
+        await conn.query('DELETE FROM addresses WHERE id = ?', [rel.address_id]);
 
-        reply.send(await loadAddresses(conn, id))
+        reply.send(await loadAddresses(conn, id));
       } finally {
-        conn.release()
+        conn.release();
       }
     },
-  )
+  );
 }
 
 // ── mappers ──────────────────────────────────────────────────────────────────
 
 function mapUser(u, addresses = [], skills = []) {
   return {
-    id:          Number(u.id),
-    username:    u.username,
+    id: Number(u.id),
+    username: u.username,
     displayName: u.display_name ?? null,
-    email:       u.email,
-    role:        u.role,
-    bio:         u.bio   ?? null,
-    phone:       u.phone ?? null,
+    email: u.email,
+    role: u.role,
+    bio: u.bio ?? null,
+    phone: u.phone ?? null,
     skills,
     addresses,
-    createdAt:   u.created_at,
-  }
+    createdAt: u.created_at,
+  };
 }
 
 function mapAddress(r) {
   return {
-    id:          Number(r.relation_id),
-    addressId:   Number(r.address_id),
+    id: Number(r.relation_id),
+    addressId: Number(r.address_id),
     addressType: r.address_type,
-    radiusM:     r.radius_m != null ? Number(r.radius_m) : null,
-    street:      r.street      ?? null,
-    city:        r.city        ?? null,
-    state:       r.state       ?? null,
-    postalCode:  r.postal_code ?? null,
-    country:     r.country     ?? null,
-    lat:         r.lat  != null ? Number(r.lat)  : null,
-    lon:         r.lon  != null ? Number(r.lon)  : null,
-  }
+    radiusM: r.radius_m != null ? Number(r.radius_m) : null,
+    street: r.street ?? null,
+    city: r.city ?? null,
+    state: r.state ?? null,
+    postalCode: r.postal_code ?? null,
+    country: r.country ?? null,
+    lat: r.lat != null ? Number(r.lat) : null,
+    lon: r.lon != null ? Number(r.lon) : null,
+  };
 }
