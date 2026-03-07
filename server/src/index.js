@@ -43,6 +43,12 @@ await fastify.register(autoload, {
   forceESM: true,
 });
 
+// Auto-load all controllers
+await fastify.register(autoload, {
+  dir: join(__dirname, 'controller'),
+  indexPattern: /^loader.js$/i,
+});
+
 // Auto-load all routes (auth, chat, health)
 await fastify.register(autoload, {
   dir: join(__dirname, 'routes'),
