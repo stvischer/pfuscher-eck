@@ -32,6 +32,11 @@ setBaseLogger(fastify.log);
 // env must be ready before any plugin that reads fastify.config
 await fastify.register(fastifyEnv, { schema, dotenv: true, confKey: 'config' });
 
+fastify.register(autoload, {
+  dir: join(__dirname, 'schemas'),
+  indexPattern: /^loader.js$/i,
+});
+
 // Auto-load all plugins (auth, cors, mariadb, redis, socketio)
 await fastify.register(autoload, {
   dir: join(__dirname, 'plugins'),
