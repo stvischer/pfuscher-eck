@@ -1,5 +1,6 @@
-import config from 'config'
-import pino from 'pino'
+import fp from 'fastify-plugin';
+import config from 'config';
+import pino from 'pino';
 
 /** @typedef {import('pino').TransportSingleOptions | import('pino').TransportMultiOptions} PinoTransport */
 /** @typedef {{ level: string, transport?: PinoTransport }} LogConfig */
@@ -33,9 +34,10 @@ function normalizeTransport(rawTransport) {
  */
 export function getLoggerConfig(name) {
   const global = config.get('logging.global');
-  const raw = name && config.has(`logging.modules.${name}`)
-    ? { ...global, ...config.get(`logging.modules.${name}`) }
-    : global;
+  const raw =
+    name && config.has(`logging.modules.${name}`)
+      ? { ...global, ...config.get(`logging.modules.${name}`) }
+      : global;
 
   const { level, transport: rawTransport } = raw;
   const transport = normalizeTransport(rawTransport);
@@ -92,3 +94,22 @@ export function getLogger(name, bindings = {}) {
 export function createModuleLogger(name, bindings = {}) {
   return getLogger(name, bindings);
 }
+
+/**
+ * Fastify plugin that wires the Fastify instance logger to the module-level
+ * Pino instance and decorates the instance with logger helpers.
+ *
+ * After registration:
+ * - `fastify.getLogger(name, bindings?)` – child logger for a named module
+ * - `fastify.createModuleLogger(name, bindings?)` – alias for `getLogger`
+ *
+ * @param {import('fastify').FastifyInstance} fastify
+ */
+async function loggingPlugin(fastify) {
+  setBaseLogger(fastify.log);
+
+  fastify.decorate('getLogger', getLogger);
+  fastify.decorate('createModuleLogger', createModuleLogger);
+}
+
+export default fp(loggingPlugin, { name: 'logging' });

@@ -4,7 +4,7 @@ import { dirname, join } from 'path';
 import { fileURLToPath } from 'url';
 import config from 'config';
 import { validatorCompiler, serializerCompiler } from 'fastify-type-provider-zod';
-import { setBaseLogger, getLoggerConfig } from './lib/logger.js';
+import { getLoggerConfig } from './plugins/logging.js';
 
 const autoloadDitectory = dirname(fileURLToPath(import.meta.url));
 
@@ -16,9 +16,7 @@ export default async function buildApp(opts = {}) {
 
   app.decorate('config', config);
 
-  setBaseLogger(app.log);
-
-  // Auto-load all plugins (auth, cors, mariadb, redis, socketio, schemas)
+  // Auto-load all plugins (auth, cors, logging, mariadb, redis, socketio, schemas)
   await app.register(autoload, {
     dir: join(autoloadDitectory, 'plugins'),
     forceESM: true,
