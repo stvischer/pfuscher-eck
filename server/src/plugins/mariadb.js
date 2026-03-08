@@ -19,12 +19,12 @@ import { createPool } from 'mariadb';
  */
 async function fastifyMariaDB(fastify, _options) {
   const pool = createPool({
-    host: fastify.config.DB_HOST,
-    port: fastify.config.DB_PORT,
-    user: fastify.config.DB_USER,
-    password: fastify.config.DB_PASSWORD,
-    database: fastify.config.DB_NAME,
-    connectionLimit: 10,
+    host: fastify.config.db.host,
+    port: fastify.config.db.port,
+    user: fastify.config.db.user,
+    password: fastify.config.db.password,
+    database: fastify.config.db.name,
+    connectionLimit: fastify.config.db.connection_limit || 10,
   });
 
   /**

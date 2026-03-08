@@ -1,10 +1,10 @@
-import fp from 'fastify-plugin'
-import fastifyJwt from '@fastify/jwt'
+import fp from 'fastify-plugin';
+import fastifyJwt from '@fastify/jwt';
 
 export default fp(async function authPlugin(fastify) {
   await fastify.register(fastifyJwt, {
-    secret: fastify.config.JWT_SECRET,
-  })
+    secret: fastify.config.jwt_secret,
+  });
 
   /**
    * Prehandler: verifies the JWT from the Authorization: Bearer header.
@@ -12,23 +12,23 @@ export default fp(async function authPlugin(fastify) {
    */
   fastify.decorate('authenticate', async function (request, reply) {
     try {
-      await request.jwtVerify()
+      await request.jwtVerify();
     } catch {
-      reply.code(401).send({ message: 'Unauthorized' })
+      reply.code(401).send({ message: 'Unauthorized' });
     }
-  })
+  });
 
   /**
    * Prehandler: verifies the JWT and requires the user to have the 'admin' role.
    */
   fastify.decorate('authorizeAdmin', async function (request, reply) {
     try {
-      await request.jwtVerify()
+      await request.jwtVerify();
       if (request.user?.role !== 'admin') {
-        reply.code(403).send({ message: 'Forbidden' })
+        reply.code(403).send({ message: 'Forbidden' });
       }
     } catch {
-      reply.code(401).send({ message: 'Unauthorized' })
+      reply.code(401).send({ message: 'Unauthorized' });
     }
-  })
-})
+  });
+});
