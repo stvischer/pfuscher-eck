@@ -3,12 +3,16 @@ import autoload from '@fastify/autoload';
 import { dirname, join } from 'path';
 import { fileURLToPath } from 'url';
 import config from 'config';
+import { validatorCompiler, serializerCompiler } from 'fastify-type-provider-zod';
 import { setBaseLogger, getLoggerConfig } from './lib/logger.js';
 
 const autoloadDitectory = dirname(fileURLToPath(import.meta.url));
 
 export default async function buildApp(opts = {}) {
   const app = fastify(Object.assign(opts, { logger: getLoggerConfig() }));
+
+  app.setValidatorCompiler(validatorCompiler);
+  app.setSerializerCompiler(serializerCompiler);
 
   app.decorate('config', config);
 
