@@ -14,12 +14,7 @@ export default async function buildApp(opts = {}) {
 
   setBaseLogger(app.log);
 
-  app.register(autoload, {
-    dir: join(autoloadDitectory, 'schemas'),
-    indexPattern: /^loader.js$/i,
-  });
-
-  // Auto-load all plugins (auth, cors, mariadb, redis, socketio)
+  // Auto-load all plugins (auth, cors, mariadb, redis, socketio, schemas)
   await app.register(autoload, {
     dir: join(autoloadDitectory, 'plugins'),
     forceESM: true,
