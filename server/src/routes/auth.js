@@ -29,17 +29,7 @@ export default async function authRoutes(fastify) {
   fastify.post(
     '/api/auth/register',
     {
-      schema: {
-        body: {
-          type: 'object',
-          required: ['username', 'email', 'password'],
-          properties: {
-            username: { type: 'string', minLength: 3, maxLength: 50 },
-            email: { type: 'string', format: 'email' },
-            password: { type: 'string', minLength: 8 },
-          },
-        },
-      },
+      schema: fastify.schema.controller.auth.register,
     },
     async (request, reply) => {
       const { username, email, password } = request.body;
@@ -78,16 +68,7 @@ export default async function authRoutes(fastify) {
   fastify.post(
     '/api/auth/login',
     {
-      schema: {
-        body: {
-          type: 'object',
-          required: ['email', 'password'],
-          properties: {
-            email: { type: 'string' },
-            password: { type: 'string' },
-          },
-        },
-      },
+      schema: fastify.schema.controller.auth.login,
     },
     async (request, reply) => {
       const { email, password } = request.body;
@@ -122,15 +103,7 @@ export default async function authRoutes(fastify) {
   fastify.post(
     '/api/auth/refresh',
     {
-      schema: {
-        body: {
-          type: 'object',
-          required: ['refreshToken'],
-          properties: {
-            refreshToken: { type: 'string' },
-          },
-        },
-      },
+      schema: fastify.schema.controller.auth.refresh,
     },
     async (request, reply) => {
       const { refreshToken } = request.body;
@@ -174,14 +147,7 @@ export default async function authRoutes(fastify) {
   fastify.post(
     '/api/auth/logout',
     {
-      schema: {
-        body: {
-          type: 'object',
-          properties: {
-            refreshToken: { type: 'string' },
-          },
-        },
-      },
+      schema: fastify.schema.controller.auth.logout,
     },
     async (request, reply) => {
       const { refreshToken } = request.body ?? {};
