@@ -3,7 +3,7 @@ import fastifyJwt from '@fastify/jwt';
 
 export default fp(async function authPlugin(fastify) {
   await fastify.register(fastifyJwt, {
-    secret: fastify.config.jwt_secret,
+    secret: fastify.config.auth.jwt_secret,
   });
 
   /**

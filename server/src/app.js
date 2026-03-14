@@ -11,6 +11,25 @@ const autoloadDitectory = dirname(fileURLToPath(import.meta.url));
 export default async function buildApp(opts = {}) {
   const app = fastify(Object.assign(opts, { logger: getLoggerConfig() }));
 
+  app.setErrorHandler((error, request, reply) => {
+    // Falls der Fehler eine statusCode-Eigenschaft hat, nutze sie, sonst 500
+    const statusCode =
+      typeof error === 'object' && error !== null && 'statusCode' in error
+        ? Number(error.statusCode)
+        : 500;
+
+    request.log.error(error); // Logge den Fehler intern
+
+    reply.status(statusCode).send({
+      status: 'error',
+      code: statusCode,
+      message:
+        typeof error === 'object' && error !== null && 'message' in error
+          ? error.message
+          : 'Interner Serverfehler',
+    });
+  });
+
   app.setValidatorCompiler(validatorCompiler);
   app.setSerializerCompiler(serializerCompiler);
 

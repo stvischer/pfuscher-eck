@@ -21,7 +21,7 @@ export default fp(async (fastify) => {
     controllers.map(async (file) => {
       const fullPath = join(import.meta.dirname, file);
       const fileUrl = pathToFileURL(fullPath).href;
-      const name = file.replace(/\.js$/, '');
+      const name = file.replace(/\.js$/, '').toLowerCase();
 
       const module = await import(fileUrl);
       const ControllerClass = module.default;

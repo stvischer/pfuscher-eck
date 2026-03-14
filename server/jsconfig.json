@@ -1,0 +1,11 @@
+{
+  "compilerOptions": {
+    "module": "NodeNext",
+    "moduleResolution": "NodeNext",
+    "target": "ESNext",
+    "checkJs": true,
+    "allowSyntheticDefaultImports": true,
+    "baseUrl": "./"
+  },
+  "exclude": ["node_modules", "dist"]
+}

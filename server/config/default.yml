@@ -1,7 +1,16 @@
 port: 3001
 
 client_url: http://localhost:3000
-jwt_secret: 535e26ac92f0d0e24328903bdd3d1c3eac1dc62ec3f7e3971e85f19c6fe9c4b48eec2d0354cfdf8323f91deba20821e7f2590052f7a13ee73073c70b78b936c9
+
+# auth
+auth:
+  jwt_secret: 535e26ac92f0d0e24328903bdd3d1c3eac1dc62ec3f7e3971e85f19c6fe9c4b48eec2d0354cfdf8323f91deba20821e7f2590052f7a13ee73073c70b78b936c9
+  token:
+    access:
+      expires: 15m
+    refresh:
+      expires: 30d
+  
 
 # databases
 redis_url: redis://localhost:6379

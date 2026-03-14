@@ -15,14 +15,16 @@ export class DBLogger {
   }
 
   debug(sql, params) {
-    this.#logger.debug(format(sql, { params, language: 'mariadb' }));
+    const stringParams = params?.map(String);
+    this.#logger.debug(format(sql, { params: stringParams, language: 'mariadb' }));
   }
 
   error(error, sql, params) {
+    const stringParams = params?.map(String);
     this.#logger.error({
       message: error.message,
       code: error.code,
-      sql: sql ? format(sql, { params, language: 'mariadb' }) : undefined,
+      sql: sql ? format(sql, { params: stringParams, language: 'mariadb' }) : undefined,
     });
   }
 }
