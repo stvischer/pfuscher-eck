@@ -2,28 +2,55 @@ import ApiError from '../lib/errors/ApiError.js';
 
 /**
  * @module controller/Address
- * @description Address controller: CRUD operations for user addresses.
+ * @description Address controller: CRUD operations for entity addresses.
+ *
+ * Supports three address types:
+ * - **offer**   – user skill offer location (1 per user)
+ * - **request** – repair request location (1 per repair)
+ * - **meeting** – meeting location (1 per meeting)
  */
 
 /**
- * Mapped address object returned to clients.
+ * Valid address types.
+ * @typedef {'offer' | 'request' | 'meeting'} AddressType
+ */
+
+/**
+ * Mapped address object returned to clients (with type/entityId).
  *
  * @typedef {Object} AddressResult
- * @property {number} id - user_addresses.id (relation row ID)
- * @property {number} addressId - addresses.id
- * @property {string} addressType
- * @property {number|null} radiusM
- * @property {string|null} street
- * @property {string|null} city
- * @property {string|null} state
- * @property {string|null} postalCode
- * @property {string|null} country
- * @property {number|null} lat
- * @property {number|null} lon
+ * @property {number}      id         - address.id
+ * @property {AddressType} type       - entity type
+ * @property {number}      entityId   - owning entity ID
+ * @property {number}      radius     - search/service radius in km
+ * @property {boolean}     enabled    - whether address participates in matching
+ * @property {string}      street
+ * @property {string}      city
+ * @property {string}      state
+ * @property {string}      postalCode
+ * @property {string}      country
+ * @property {number}      lat
+ * @property {number}      lon
  */
 
 /**
- * Handles user address operations.
+ * Mapped user address object (via FK, no type/entityId).
+ *
+ * @typedef {Object} UserAddressResult
+ * @property {number}      id         - address.id
+ * @property {number}      radius     - search/service radius in km
+ * @property {boolean}     enabled    - whether address participates in matching
+ * @property {string}      street
+ * @property {string}      city
+ * @property {string}      state
+ * @property {string}      postalCode
+ * @property {string}      country
+ * @property {number}      lat
+ * @property {number}      lon
+ */
+
+/**
+ * Handles entity address operations.
  */
 export default class Address {
   /** @type {import('fastify').FastifyInstance & { db: import('../plugins/mariadb.js').FastifyDB }} */
@@ -37,136 +64,128 @@ export default class Address {
   }
 
   /**
-   * List all addresses for a user.
+   * Get address by type and entity ID.
    *
-   * @param {number} userId
-   * @returns {Promise<AddressResult[]>}
+   * @param {AddressType} type
+   * @param {number} entityId
+   * @returns {Promise<AddressResult | null>}
    */
-  async listForUser(userId) {
-    const rows = await this.#fastify.db.query(
+  async get(type, entityId) {
+    const row = await this.#fastify.db.queryOne(
       `SELECT
-         ua.id           AS relation_id,
-         ua.address_type,
-         ua.radius_m,
-         a.id            AS address_id,
-         a.street,
-         a.city,
-         a.state,
-         a.postal_code,
-         a.country,
-         ST_Y(a.location) AS lat,
-         ST_X(a.location) AS lon
-       FROM   user_addresses ua
-       JOIN   addresses a ON a.id = ua.address_id
-       WHERE  ua.user_id = ?
-       ORDER  BY ua.id`,
-      [userId],
+         id, type, entity_id, radius, enabled,
+         street, city, state, postal_code, country,
+         ST_Y(location) AS lat, ST_X(location) AS lon
+       FROM address
+       WHERE type = ? AND entity_id = ?`,
+      [type, entityId],
     );
-    return rows.map(this.#mapAddress);
+    return row ? this.#mapAddress(row) : null;
   }
 
   /**
-   * Create or update an address for a user (upsert by addressType).
+   * Create or update an address for an entity (upsert by type + entityId).
    *
-   * @param {number} userId
+   * @param {AddressType} type
+   * @param {number} entityId
    * @param {Object} data
-   * @param {string} [data.addressType='home']
-   * @param {number|null} [data.radiusM]
-   * @param {string} [data.street]
-   * @param {string} [data.city]
-   * @param {string} [data.state]
-   * @param {string} [data.postalCode]
-   * @param {string} [data.country]
-   * @param {number|null} [data.lat]
-   * @param {number|null} [data.lon]
-   * @returns {Promise<{ created: boolean, addresses: AddressResult[] }>}
+   * @param {number} [data.radius=20]  - service/search radius in km
+   * @param {boolean} [data.enabled=true]
+   * @param {string} data.street
+   * @param {string} data.city
+   * @param {string} [data.state='']
+   * @param {string} data.postalCode
+   * @param {string} data.country
+   * @param {number} data.lat
+   * @param {number} data.lon
+   * @returns {Promise<{ created: boolean, address: AddressResult }>}
    */
   async upsert(
-    userId,
-    { addressType = 'home', radiusM, street, city, state, postalCode, country, lat, lon },
+    type,
+    entityId,
+    { radius = 20, enabled = true, street, city, state = '', postalCode, country, lat, lon },
   ) {
     const transaction = await this.#fastify.db.transaction();
 
     try {
       const existing = await transaction.queryOne(
-        'SELECT ua.id AS rel_id, ua.address_id FROM user_addresses ua WHERE ua.user_id = ? AND ua.address_type = ? LIMIT 1',
-        [userId, addressType],
+        'SELECT id FROM address WHERE type = ? AND entity_id = ? LIMIT 1',
+        [type, entityId],
       );
 
       let created = false;
+      let addressId;
 
       if (existing) {
-        // Update existing address
-        const addrFields = [];
-        const addrValues = [];
+        addressId = existing.id;
+
+        const fields = [];
+        const values = [];
 
         if (street !== undefined) {
-          addrFields.push('street = ?');
-          addrValues.push(street || null);
+          fields.push('street = ?');
+          values.push(street);
         }
         if (city !== undefined) {
-          addrFields.push('city = ?');
-          addrValues.push(city || null);
+          fields.push('city = ?');
+          values.push(city);
         }
         if (state !== undefined) {
-          addrFields.push('state = ?');
-          addrValues.push(state || null);
+          fields.push('state = ?');
+          values.push(state);
         }
         if (postalCode !== undefined) {
-          addrFields.push('postal_code = ?');
-          addrValues.push(postalCode || null);
+          fields.push('postal_code = ?');
+          values.push(postalCode);
         }
         if (country !== undefined) {
-          addrFields.push('country = ?');
-          addrValues.push(country || null);
+          fields.push('country = ?');
+          values.push(country);
         }
-        if (lat !== undefined || lon !== undefined) {
-          addrFields.push(
-            lat != null && lon != null
-              ? `location = ST_GeomFromText('POINT(${Number(lon)} ${Number(lat)})', 4326)`
-              : 'location = NULL',
-          );
+        if (radius !== undefined) {
+          fields.push('radius = ?');
+          values.push(radius);
         }
-
-        if (addrFields.length > 0) {
-          addrValues.push(existing.address_id);
-          await transaction.query(
-            `UPDATE addresses SET ${addrFields.join(', ')} WHERE id = ?`,
-            addrValues,
-          );
+        if (enabled !== undefined) {
+          fields.push('enabled = ?');
+          values.push(enabled ? 1 : 0);
+        }
+        if (lat !== undefined && lon !== undefined) {
+          fields.push(`location = ST_GeomFromText('POINT(${Number(lon)} ${Number(lat)})', 4326)`);
+          fields.push('hash = ST_GeoHash(?, ?, 12)');
+          values.push(Number(lon), Number(lat));
         }
 
-        if (radiusM !== undefined) {
-          await transaction.query('UPDATE user_addresses SET radius_m = ? WHERE id = ?', [
-            radiusM ?? null,
-            existing.rel_id,
-          ]);
+        if (fields.length > 0) {
+          values.push(addressId);
+          await transaction.query(`UPDATE address SET ${fields.join(', ')} WHERE id = ?`, values);
         }
       } else {
-        // Create new address
-        const locationExpr =
-          lat != null && lon != null
-            ? `ST_GeomFromText('POINT(${Number(lon)} ${Number(lat)})', 4326)`
-            : 'NULL';
-
         const res = await transaction.query(
-          `INSERT INTO addresses (street, city, state, postal_code, country, location)
-           VALUES (?, ?, ?, ?, ?, ${locationExpr})`,
-          [street ?? null, city ?? null, state ?? null, postalCode ?? null, country ?? null],
+          `INSERT INTO address (type, entity_id, street, city, state, postal_code, country, radius, enabled, hash, location)
+           VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ST_GeoHash(?, ?, 12), ST_GeomFromText('POINT(${Number(lon)} ${Number(lat)})', 4326))`,
+          [
+            type,
+            entityId,
+            street,
+            city,
+            state,
+            postalCode,
+            country,
+            radius,
+            enabled ? 1 : 0,
+            Number(lon),
+            Number(lat),
+          ],
         );
-
-        await transaction.query(
-          'INSERT INTO user_addresses (user_id, address_id, address_type, radius_m) VALUES (?, ?, ?, ?)',
-          [userId, Number(res.insertId), addressType, radiusM ?? null],
-        );
-
+        addressId = Number(res.insertId);
         created = true;
       }
 
       await transaction.commit();
 
-      const addresses = await this.listForUser(userId);
-      return { created, addresses };
+      const address = await this.get(type, entityId);
+      return { created, address };
     } catch (error) {
       await transaction.rollback();
       throw error;
@@ -174,95 +193,222 @@ export default class Address {
   }
 
   /**
-   * Update an existing address by relation ID.
+   * Update an existing address by type and entity ID.
    *
-   * @param {number} userId
-   * @param {number} relationId - user_addresses.id
+   * @param {AddressType} type
+   * @param {number} entityId
    * @param {Object} data
-   * @returns {Promise<AddressResult[]>}
+   * @param {number} [data.radius]
+   * @param {boolean} [data.enabled]
+   * @param {string} [data.street]
+   * @param {string} [data.city]
+   * @param {string} [data.state]
+   * @param {string} [data.postalCode]
+   * @param {string} [data.country]
+   * @param {number} [data.lat]
+   * @param {number} [data.lon]
+   * @returns {Promise<AddressResult>}
    * @throws {ApiError} 404 – if address not found.
    */
-  async update(
+  async update(type, entityId, { radius, enabled, street, city, state, postalCode, country, lat, lon }) {
+    const transaction = await this.#fastify.db.transaction();
+
+    try {
+      const existing = await transaction.queryOne(
+        'SELECT id FROM address WHERE type = ? AND entity_id = ? LIMIT 1',
+        [type, entityId],
+      );
+
+      if (!existing) {
+        throw new ApiError(404, 'Address not found');
+      }
+
+      const fields = [];
+      const values = [];
+
+      if (street !== undefined) {
+        fields.push('street = ?');
+        values.push(street);
+      }
+      if (city !== undefined) {
+        fields.push('city = ?');
+        values.push(city);
+      }
+      if (state !== undefined) {
+        fields.push('state = ?');
+        values.push(state);
+      }
+      if (postalCode !== undefined) {
+        fields.push('postal_code = ?');
+        values.push(postalCode);
+      }
+      if (country !== undefined) {
+        fields.push('country = ?');
+        values.push(country);
+      }
+      if (radius !== undefined) {
+        fields.push('radius = ?');
+        values.push(radius);
+      }
+      if (enabled !== undefined) {
+        fields.push('enabled = ?');
+        values.push(enabled ? 1 : 0);
+      }
+      if (lat !== undefined && lon !== undefined) {
+        fields.push(`location = ST_GeomFromText('POINT(${Number(lon)} ${Number(lat)})', 4326)`);
+        fields.push('hash = ST_GeoHash(?, ?, 12)');
+        values.push(Number(lon), Number(lat));
+      }
+
+      if (fields.length > 0) {
+        values.push(existing.id);
+        await transaction.query(`UPDATE address SET ${fields.join(', ')} WHERE id = ?`, values);
+      }
+
+      await transaction.commit();
+
+      return this.get(type, entityId);
+    } catch (error) {
+      await transaction.rollback();
+      throw error;
+    }
+  }
+
+  /**
+   * Delete an address by type and entity ID.
+   *
+   * @param {AddressType} type
+   * @param {number} entityId
+   * @returns {Promise<void>}
+   * @throws {ApiError} 404 – if address not found.
+   */
+  async delete(type, entityId) {
+    const existing = await this.#fastify.db.queryOne(
+      'SELECT id FROM address WHERE type = ? AND entity_id = ? LIMIT 1',
+      [type, entityId],
+    );
+
+    if (!existing) {
+      throw new ApiError(404, 'Address not found');
+    }
+
+    await this.#fastify.db.query('DELETE FROM address WHERE id = ?', [existing.id]);
+  }
+
+  // ─────────────────────────────────────────────────────────────────────────
+  // User-specific methods (using user.address_id FK)
+  // ─────────────────────────────────────────────────────────────────────────
+
+  /**
+   * Get address for a user via user.address_id FK.
+   *
+   * @param {number} userId
+   * @returns {Promise<UserAddressResult | null>}
+   */
+  async getForUser(userId) {
+    const row = await this.#fastify.db.queryOne(
+      `SELECT
+         a.id, a.radius, a.enabled,
+         a.street, a.city, a.state, a.postal_code, a.country,
+         ST_Y(a.location) AS lat, ST_X(a.location) AS lon
+       FROM user u
+       JOIN address a ON a.id = u.address_id
+       WHERE u.id = ?`,
+      [userId],
+    );
+    return row ? this.#mapUserAddress(row) : null;
+  }
+
+  /**
+   * Create or update address for a user (upsert via user.address_id FK).
+   *
+   * @param {number} userId
+   * @param {Object} data
+   * @param {number} [data.radius=20]
+   * @param {boolean} [data.enabled=true]
+   * @param {string} data.street
+   * @param {string} data.city
+   * @param {string} [data.state='']
+   * @param {string} data.postalCode
+   * @param {string} data.country
+   * @param {number} data.lat
+   * @param {number} data.lon
+   * @returns {Promise<{ created: boolean, address: UserAddressResult }>}
+   */
+  async upsertForUser(
     userId,
-    relationId,
-    { addressType, radiusM, street, city, state, postalCode, country, lat, lon },
+    { radius = 20, enabled = true, street, city, state = '', postalCode, country, lat, lon },
   ) {
     const transaction = await this.#fastify.db.transaction();
 
     try {
-      const rel = await transaction.queryOne(
-        'SELECT ua.id, ua.address_id FROM user_addresses ua WHERE ua.id = ? AND ua.user_id = ? LIMIT 1',
-        [relationId, userId],
-      );
+      // Check if user already has an address
+      const user = await transaction.queryOne('SELECT address_id FROM user WHERE id = ?', [userId]);
 
-      if (!rel) {
-        throw new ApiError(404, 'Address not found');
-      }
+      let created = false;
+      let addressId = user?.address_id;
 
-      // Update address fields
-      const addrFields = [];
-      const addrValues = [];
+      if (addressId) {
+        // Update existing address
+        const fields = [];
+        const values = [];
 
-      if (street !== undefined) {
-        addrFields.push('street = ?');
-        addrValues.push(street || null);
-      }
-      if (city !== undefined) {
-        addrFields.push('city = ?');
-        addrValues.push(city || null);
-      }
-      if (state !== undefined) {
-        addrFields.push('state = ?');
-        addrValues.push(state || null);
-      }
-      if (postalCode !== undefined) {
-        addrFields.push('postal_code = ?');
-        addrValues.push(postalCode || null);
-      }
-      if (country !== undefined) {
-        addrFields.push('country = ?');
-        addrValues.push(country || null);
-      }
-      if (lat !== undefined && lon !== undefined) {
-        addrFields.push(
-          lat != null && lon != null
-            ? `location = ST_GeomFromText('POINT(${Number(lon)} ${Number(lat)})', 4326)`
-            : 'location = NULL',
+        if (street !== undefined) {
+          fields.push('street = ?');
+          values.push(street);
+        }
+        if (city !== undefined) {
+          fields.push('city = ?');
+          values.push(city);
+        }
+        if (state !== undefined) {
+          fields.push('state = ?');
+          values.push(state);
+        }
+        if (postalCode !== undefined) {
+          fields.push('postal_code = ?');
+          values.push(postalCode);
+        }
+        if (country !== undefined) {
+          fields.push('country = ?');
+          values.push(country);
+        }
+        if (radius !== undefined) {
+          fields.push('radius = ?');
+          values.push(radius);
+        }
+        if (enabled !== undefined) {
+          fields.push('enabled = ?');
+          values.push(enabled ? 1 : 0);
+        }
+        if (lat !== undefined && lon !== undefined) {
+          fields.push(`location = ST_GeomFromText('POINT(${Number(lon)} ${Number(lat)})', 4326)`);
+          fields.push('hash = ST_GeoHash(?, ?, 12)');
+          values.push(Number(lon), Number(lat));
+        }
+
+        if (fields.length > 0) {
+          values.push(addressId);
+          await transaction.query(`UPDATE address SET ${fields.join(', ')} WHERE id = ?`, values);
+        }
+      } else {
+        // Create new address and link to user
+        const res = await transaction.query(
+          `INSERT INTO address (type, street, city, state, postal_code, country, radius, enabled, hash, location)
+           VALUES ('offer', ?, ?, ?, ?, ?, ?, ?, ST_GeoHash(?, ?, 12), ST_GeomFromText('POINT(${Number(lon)} ${Number(lat)})', 4326))`,
+          [street, city, state, postalCode, country, radius, enabled ? 1 : 0, Number(lon), Number(lat)],
         );
-      }
+        addressId = Number(res.insertId);
+        created = true;
 
-      if (addrFields.length > 0) {
-        addrValues.push(rel.address_id);
-        await transaction.query(
-          `UPDATE addresses SET ${addrFields.join(', ')} WHERE id = ?`,
-          addrValues,
-        );
-      }
-
-      // Update relation fields
-      const relFields = [];
-      const relValues = [];
-
-      if (addressType !== undefined) {
-        relFields.push('address_type = ?');
-        relValues.push(addressType);
-      }
-      if (radiusM !== undefined) {
-        relFields.push('radius_m = ?');
-        relValues.push(radiusM ?? null);
-      }
-
-      if (relFields.length > 0) {
-        relValues.push(rel.id);
-        await transaction.query(
-          `UPDATE user_addresses SET ${relFields.join(', ')} WHERE id = ?`,
-          relValues,
-        );
+        // Update user.address_id
+        await transaction.query('UPDATE user SET address_id = ? WHERE id = ?', [addressId, userId]);
       }
 
       await transaction.commit();
 
-      return this.listForUser(userId);
+      const address = await this.getForUser(userId);
+      return { created, address };
     } catch (error) {
       await transaction.rollback();
       throw error;
@@ -270,32 +416,96 @@ export default class Address {
   }
 
   /**
-   * Delete an address by relation ID.
+   * Update address for a user via user.address_id FK.
    *
    * @param {number} userId
-   * @param {number} relationId - user_addresses.id
-   * @returns {Promise<AddressResult[]>}
-   * @throws {ApiError} 404 – if address not found.
+   * @param {Object} data
+   * @returns {Promise<UserAddressResult>}
+   * @throws {ApiError} 404 – if user has no address.
    */
-  async delete(userId, relationId) {
+  async updateForUser(userId, { radius, enabled, street, city, state, postalCode, country, lat, lon }) {
     const transaction = await this.#fastify.db.transaction();
 
     try {
-      const rel = await transaction.queryOne(
-        'SELECT ua.id, ua.address_id FROM user_addresses ua WHERE ua.id = ? AND ua.user_id = ? LIMIT 1',
-        [relationId, userId],
-      );
+      const user = await transaction.queryOne('SELECT address_id FROM user WHERE id = ?', [userId]);
 
-      if (!rel) {
+      if (!user?.address_id) {
         throw new ApiError(404, 'Address not found');
       }
 
-      await transaction.query('DELETE FROM user_addresses WHERE id = ?', [rel.id]);
-      await transaction.query('DELETE FROM addresses WHERE id = ?', [rel.address_id]);
+      const fields = [];
+      const values = [];
+
+      if (street !== undefined) {
+        fields.push('street = ?');
+        values.push(street);
+      }
+      if (city !== undefined) {
+        fields.push('city = ?');
+        values.push(city);
+      }
+      if (state !== undefined) {
+        fields.push('state = ?');
+        values.push(state);
+      }
+      if (postalCode !== undefined) {
+        fields.push('postal_code = ?');
+        values.push(postalCode);
+      }
+      if (country !== undefined) {
+        fields.push('country = ?');
+        values.push(country);
+      }
+      if (radius !== undefined) {
+        fields.push('radius = ?');
+        values.push(radius);
+      }
+      if (enabled !== undefined) {
+        fields.push('enabled = ?');
+        values.push(enabled ? 1 : 0);
+      }
+      if (lat !== undefined && lon !== undefined) {
+        fields.push(`location = ST_GeomFromText('POINT(${Number(lon)} ${Number(lat)})', 4326)`);
+        fields.push('hash = ST_GeoHash(?, ?, 12)');
+        values.push(Number(lon), Number(lat));
+      }
+
+      if (fields.length > 0) {
+        values.push(user.address_id);
+        await transaction.query(`UPDATE address SET ${fields.join(', ')} WHERE id = ?`, values);
+      }
 
       await transaction.commit();
 
-      return this.listForUser(userId);
+      return this.getForUser(userId);
+    } catch (error) {
+      await transaction.rollback();
+      throw error;
+    }
+  }
+
+  /**
+   * Delete address for a user (clears user.address_id and deletes address row).
+   *
+   * @param {number} userId
+   * @returns {Promise<void>}
+   * @throws {ApiError} 404 – if user has no address.
+   */
+  async deleteForUser(userId) {
+    const transaction = await this.#fastify.db.transaction();
+
+    try {
+      const user = await transaction.queryOne('SELECT address_id FROM user WHERE id = ?', [userId]);
+
+      if (!user?.address_id) {
+        throw new ApiError(404, 'Address not found');
+      }
+
+      // Clear the FK first, then delete the address
+      await transaction.query('UPDATE user SET address_id = NULL WHERE id = ?', [userId]);
+      await transaction.query('DELETE FROM address WHERE id = ?', [user.address_id]);
+
+      await transaction.commit();
     } catch (error) {
       await transaction.rollback();
       throw error;
@@ -310,15 +520,37 @@ export default class Address {
    */
   #mapAddress(row) {
     return {
-      id: Number(row.relation_id),
-      addressId: Number(row.address_id),
-      addressType: row.address_type,
-      radiusM: row.radius_m != null ? Number(row.radius_m) : null,
-      street: row.street ?? null,
-      city: row.city ?? null,
-      state: row.state ?? null,
-      postalCode: row.postal_code ?? null,
-      country: row.country ?? null,
+      id: Number(row.id),
+      type: row.type,
+      entityId: Number(row.entity_id),
+      radius: Number(row.radius),
+      enabled: row.enabled === 1,
+      street: row.street,
+      city: row.city,
+      state: row.state,
+      postalCode: row.postal_code,
+      country: row.country,
+      lat: row.lat != null ? Number(row.lat) : null,
+      lon: row.lon != null ? Number(row.lon) : null,
+    };
+  }
+
+  /**
+   * Map a database row to a UserAddressResult (user FK version, no type/entityId).
+   *
+   * @param {Object} row
+   * @returns {UserAddressResult}
+   */
+  #mapUserAddress(row) {
+    return {
+      id: Number(row.id),
+      radius: Number(row.radius),
+      enabled: row.enabled === 1,
+      street: row.street,
+      city: row.city,
+      state: row.state,
+      postalCode: row.postal_code,
+      country: row.country,
       lat: row.lat != null ? Number(row.lat) : null,
       lon: row.lon != null ? Number(row.lon) : null,
     };

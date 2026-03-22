@@ -53,11 +53,11 @@ export default class User {
     }
 
     const [address, skills] = await Promise.all([
-      this.#fastify.controller.address.get('offer', userId),
+      this.#fastify.controller.address.getForUser(userId),
       this.#fastify.controller.skill.listForUser(userId),
     ]);
 
-    return this.#mapUser(row, address, skills);
+    return this.#mapUser(row, address ? [address] : [], skills);
   }
 
   /**

@@ -6,7 +6,7 @@ export default {
     id: z.coerce.number().int().min(1),
   }),
   response: {
-    200: z.array(addressSchema),
+    200: addressSchema.nullable(),
     403: z.object({ message: z.string() }),
   },
 };

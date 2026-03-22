@@ -79,7 +79,7 @@ export default async function userRoutes(fastify) {
       const { id } = request.params;
       if (id !== request.user.id) return reply.code(403).send({ message: 'Forbidden' });
 
-      const address = await fastify.controller.address.get('offer', id);
+      const address = await fastify.controller.address.getForUser(id);
       reply.send(address);
     },
   );
@@ -98,7 +98,7 @@ export default async function userRoutes(fastify) {
 
       const { radius, enabled, street, city, state, postalCode, country, lat, lon } = request.body;
 
-      const { created, address } = await fastify.controller.address.upsert('offer', id, {
+      const { created, address } = await fastify.controller.address.upsertForUser(id, {
         radius,
         enabled,
         street,
@@ -128,7 +128,7 @@ export default async function userRoutes(fastify) {
 
       const { radius, enabled, street, city, state, postalCode, country, lat, lon } = request.body;
 
-      const address = await fastify.controller.address.update('offer', id, {
+      const address = await fastify.controller.address.updateForUser(id, {
         radius,
         enabled,
         street,
@@ -156,7 +156,7 @@ export default async function userRoutes(fastify) {
       const { id } = request.params;
       if (id !== request.user.id) return reply.code(403).send({ message: 'Forbidden' });
 
-      await fastify.controller.address.delete('offer', id);
+      await fastify.controller.address.deleteForUser(id);
       reply.code(204).send();
     },
   );

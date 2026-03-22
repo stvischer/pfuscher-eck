@@ -14,7 +14,7 @@ export default {
         id: z.number(),
         username: z.string(),
         email: z.string().email(),
-        role: z.string(),
+        role: z.enum(['user', 'admin']),
       }),
     }),
     409: z.object({
