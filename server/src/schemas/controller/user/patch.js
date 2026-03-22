@@ -1,5 +1,5 @@
 import { z } from 'zod';
-import { addressSchema } from '../../shared/address.js';
+import { userAddressSchema } from '../../shared/address.js';
 import { skillSchema } from '../../shared/skill.js';
 
 const userSchema = z.object({
@@ -11,7 +11,7 @@ const userSchema = z.object({
   bio: z.string().nullable(),
   phone: z.string().nullable(),
   skills: z.array(skillSchema),
-  addresses: z.array(addressSchema),
+  address: userAddressSchema.nullable(),
   createdAt: z.string(),
 });
 

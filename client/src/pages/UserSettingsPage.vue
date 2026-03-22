@@ -39,22 +39,23 @@ const skillsRef   = ref()
 const saving      = ref(false)
 
 const hasChanges = computed(() =>
-  !!(accountRef.value?.isDirty || addressRef.value?.isDirty || skillsRef.value?.isDirty)
+  !!(accountRef.value?.isDirty || skillsRef.value?.isDirty || addressRef.value?.isDirty)
 )
 
 async function saveAll() {
   saving.value = true
   try {
-    const profileDirty = !!(accountRef.value?.isDirty || skillsRef.value?.isDirty)
+    const accountDirty = !!accountRef.value?.isDirty
+    const skillsDirty  = !!skillsRef.value?.isDirty
     const addressDirty = !!addressRef.value?.isDirty
 
-    if (profileDirty) {
-      const profileFields = {
-        ...accountRef.value?.getFields(),
-        ...skillsRef.value?.getFields(),
-      }
-      await auth.updateProfile(profileFields)
+    if (accountDirty) {
+      await auth.updateProfile(accountRef.value.getFields())
       accountRef.value?.resetSnapshot()
+    }
+
+    if (skillsDirty) {
+      await auth.updateSkills(skillsRef.value.getFields().skills)
       skillsRef.value?.resetSnapshot()
     }
 

@@ -57,7 +57,7 @@ export default class User {
       this.#fastify.controller.skill.listForUser(userId),
     ]);
 
-    return this.#mapUser(row, address ? [address] : [], skills);
+    return this.#mapUser(row, address ?? null, skills);
   }
 
   /**
@@ -140,7 +140,7 @@ export default class User {
    * @param {Array} skills
    * @returns {UserProfile}
    */
-  #mapUser(row, addresses = [], skills = []) {
+  #mapUser(row, address = null, skills = []) {
     return {
       id: Number(row.id),
       username: row.username,
@@ -150,7 +150,7 @@ export default class User {
       bio: row.bio ?? null,
       phone: row.phone ?? null,
       skills,
-      addresses,
+      address,
       createdAt: row.created_at instanceof Date ? row.created_at.toISOString() : row.created_at,
     };
   }

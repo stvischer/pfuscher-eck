@@ -97,9 +97,22 @@ export const useAuthStore = defineStore('auth', () => {
     loading.value = true;
     error.value = null;
     try {
-      // POST /api/user/:id/addresses upserts by addressType
-      const addresses = await api.post(`/user/${user.value.id}/addresses`, addressFields);
-      user.value = { ...user.value, addresses };
+      const address = await api.post(`/user/${user.value.id}/address`, addressFields);
+      user.value = { ...user.value, address };
+    } catch (err) {
+      error.value = err.message;
+      throw err;
+    } finally {
+      loading.value = false;
+    }
+  }
+
+  async function updateSkills(skills) {
+    loading.value = true;
+    error.value = null;
+    try {
+      const updatedSkills = await api.put(`/user/${user.value.id}/skills`, { skills });
+      user.value = { ...user.value, skills: updatedSkills };
     } catch (err) {
       error.value = err.message;
       throw err;
@@ -133,6 +146,7 @@ export const useAuthStore = defineStore('auth', () => {
     register,
     logout,
     updateProfile,
+    updateSkills,
     upsertAddress,
     changePassword,
   };
