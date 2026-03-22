@@ -22,3 +22,19 @@ export const addressSchema = z.object({
   lat: z.number().nullable(),
   lon: z.number().nullable(),
 });
+
+/**
+ * User address response object (via user.address_id FK — no type/entityId).
+ */
+export const userAddressSchema = z.object({
+  id: z.number(),
+  radius: z.number(),
+  enabled: z.boolean(),
+  street: z.string(),
+  city: z.string(),
+  state: z.string(),
+  postalCode: z.string(),
+  country: z.string(),
+  lat: z.number().nullable(),
+  lon: z.number().nullable(),
+});

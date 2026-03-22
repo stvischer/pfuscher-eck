@@ -1,5 +1,5 @@
 import { z } from 'zod';
-import { addressSchema } from '../../../shared/address.js';
+import { userAddressSchema } from '../../../shared/address.js';
 
 export default {
   params: z.object({
@@ -17,7 +17,7 @@ export default {
     lon: z.number().optional(),
   }),
   response: {
-    200: addressSchema,
+    200: userAddressSchema,
     403: z.object({ message: z.string() }),
     404: z.object({ message: z.string() }),
   },
