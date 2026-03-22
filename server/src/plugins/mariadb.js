@@ -1,3 +1,6 @@
+import Temorary from '../lib/db/Temporary.js';
+import Transaction from '../lib/db/Transaction.js';
+
 /**
  * @module plugins/mariadb
  * @description Fastify plugin that wires up a MariaDB connection pool and
@@ -32,8 +35,11 @@ import { createPool } from 'mariadb';
  *   Acquire a dedicated connection from the pool (caller must release it).
  * @property {(sql: string, params?: any[]) => Promise<any>} queryOne
  *   Execute a parameterised SQL query and return only the first row, or `undefined`.
- * @property {() => Promise<Transaction>} transaction
+ * @property {() => Promise<import('../lib/db/Transaction.js').default>} transaction
  *   Open a new database transaction and return a {@link Transaction} handle.
+ * @property {(table: string, options?: import('../lib/db/Temporary.js').TemporaryOptions) => Promise<import('../lib/db/Temporary.js').default>} temporary
+ *   Create a shadow-table helper for atomic bulk-replace operations.
+ *   The caller must call {@link import('../lib/db/Temporary.js').default#open open()} before use.
  */
 
 /**
@@ -44,121 +50,17 @@ import { createPool } from 'mariadb';
  */
 
 /**
- * A named savepoint within a database transaction.
- */
-class Savepoint {
-  /** @type {string} */
-  #name;
-  /** @type {import('mariadb').PoolConnection} */
-  #connection;
-
-  /**
-   * Create and immediately issue the SAVEPOINT statement.
-   *
-   * @param {import('mariadb').PoolConnection} connection
-   * @param {string} name
-   * @returns {Promise<Savepoint>}
-   */
-  static async getInstance(connection, name) {
-    const savepoint = new Savepoint(connection, name);
-    await connection.query('SAVEPOINT ?', [name]);
-    return savepoint;
-  }
-
-  /**
-   * @param {import('mariadb').PoolConnection} connection
-   * @param {string} name
-   */
-  constructor(connection, name) {
-    this.#connection = connection;
-    this.#name = name;
-  }
-
-  /** Roll back to this savepoint. */
-  async rollback() {
-    await this.#connection.query('ROLLBACK TO SAVEPOINT ?', [this.#name]);
-  }
-}
-
-/**
- * A database transaction bound to a single pool connection.
- */
-class Transaction {
-  /** @type {import('mariadb').PoolConnection} */
-  #connection;
-
-  /**
-   * Acquire a connection from the pool, start a transaction, and return a
-   * bound {@link Transaction} instance.
-   *
-   * @param {FastifyInstanceWithDB} fastify
-   * @returns {Promise<Transaction>}
-   */
-  static async getInstance(fastify) {
-    const connection = await fastify.db.getConnection();
-    await connection.query('START TRANSACTION;');
-    return new Transaction(connection);
-  }
-
-  /**
-   * @param {import('mariadb').PoolConnection} connection - Dedicated connection with an open transaction.
-   */
-  constructor(connection) {
-    this.#connection = connection;
-  }
-
-  /** Commit the transaction and release the connection. */
-  async commit() {
-    await this.#connection.query('COMMIT');
-    this.#connection.release();
-  }
-
-  /** Roll back the transaction and release the connection. */
-  async rollback() {
-    await this.#connection.query('ROLLBACK');
-    this.#connection.release();
-  }
-
-  /**
-   * Create a named savepoint within this transaction.
-   *
-   * @param {string} name
-   * @returns {Promise<Savepoint>}
-   */
-  async savepoint(name) {
-    return Savepoint.getInstance(this.#connection, name);
-  }
-
-  /**
-   * Execute a parameterised query on the transaction connection.
-   *
-   * @param {string} sql
-   * @param {any[]} [params]
-   * @returns {Promise<any>}
-   */
-  async query(sql, params) {
-    return this.#connection.query(sql, params);
-  }
-
-  /**
-   * Execute a parameterised query and return only the first row.
-   *
-   * @param {string}  sql
-   * @param {any[]}   [params]
-   * @returns {Promise<any | undefined>} The first row, or `undefined` if the result set is empty.
-   */
-  async queryOne(sql, params) {
-    const rows = await this.query(sql, params);
-    return rows[0];
-  }
-}
-
-/**
  * Fastify plugin that creates a MariaDB connection pool and decorates the
  * Fastify instance with `fastify.db`.
  *
  * Configuration is read from `fastify.config.db`:
  * `host`, `port`, `user`, `password`, `name`, `connection_limit`.
+ *
+ * @param {import('fastify').FastifyInstance & { config: { db: DbConfig } }} fastify
+ *   The Fastify instance provided by the plugin system.
+ * @param {Record<string, never>} [options={}]
+ *   Unused plugin options (reserved for future use).
+ * @returns {Promise<void>}
  */
 async function fastifyMariaDB(fastify, options = {}) {
   const pool = createPool({
@@ -181,6 +83,22 @@ async function fastifyMariaDB(fastify, options = {}) {
     },
     getConnection: () => pool.getConnection(),
     transaction: async () => Transaction.getInstance(fastify),
+    /**
+     * Create a shadow-table helper for atomic bulk-replace operations.
+     *
+     * Internally constructs a {@link Temorary} instance, calls
+     * {@link Temorary#open} to begin the underlying transaction and create the
+     * shadow table, then returns the ready-to-use instance.
+     *
+     * @param {string}                                table   - Name of the source table to shadow.
+     * @param {import('../lib/db/Temporary.js').TemporaryOptions} [options={}]
+     * @returns {Promise<import('../lib/db/Temporary.js').default>}
+     */
+    temporary: async (table, options) => {
+      const temporary = new Temorary(fastify, table, options);
+      await temporary.open();
+      return temporary;
+    },
   };
 
   fastify.decorate('db', db);
