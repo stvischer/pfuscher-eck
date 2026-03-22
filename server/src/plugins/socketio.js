@@ -66,9 +66,9 @@ async function socketio(fastify) {
                   u.username,
                   m.reply_to, rm.content AS reply_content, ru.username AS reply_username
            FROM chat_messages m
-           JOIN users u ON u.id = m.user_id
+           JOIN user u ON u.id = m.user_id
            LEFT JOIN chat_messages rm ON rm.id = m.reply_to
-           LEFT JOIN users ru ON ru.id = rm.user_id
+           LEFT JOIN user ru ON ru.id = rm.user_id
            WHERE m.id = ?`,
           [result.insertId],
         );

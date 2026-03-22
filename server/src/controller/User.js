@@ -29,7 +29,7 @@ export default class User {
   #fastify;
 
   /**
-   * @param {import('fastify').FastifyInstance & { db: import('../plugins/mariadb.js').FastifyDB }} fastify
+   * @param {import('fastify').FastifyInstance & { db: import('../plugins/mariadb.js').FastifyDB, controller: { address: import('./Address.js').default, skill: import('./Skill.js').default } }} fastify
    */
   constructor(fastify) {
     this.#fastify = fastify;
@@ -44,7 +44,7 @@ export default class User {
    */
   async getById(userId) {
     const row = await this.#fastify.db.queryOne(
-      'SELECT id, username, display_name, email, role, bio, phone, created_at FROM users WHERE id = ? LIMIT 1',
+      'SELECT id, username, display_name, email, role, bio, phone, created_at FROM user WHERE id = ? LIMIT 1',
       [userId],
     );
 
@@ -52,12 +52,12 @@ export default class User {
       throw new ApiError(404, 'User not found');
     }
 
-    const [addresses, skills] = await Promise.all([
-      this.#fastify.controller.address.listForUser(userId),
+    const [address, skills] = await Promise.all([
+      this.#fastify.controller.address.get('offer', userId),
       this.#fastify.controller.skill.listForUser(userId),
     ]);
 
-    return this.#mapUser(row, addresses, skills);
+    return this.#mapUser(row, address, skills);
   }
 
   /**
@@ -86,7 +86,7 @@ export default class User {
       // Check for conflicts
       if (username !== undefined || email !== undefined) {
         const conflict = await transaction.query(
-          'SELECT id FROM users WHERE (username = ? OR email = ?) AND id != ? LIMIT 1',
+          'SELECT id FROM user WHERE (username = ? OR email = ?) AND id != ? LIMIT 1',
           [username ?? '', email ?? '', userId],
         );
         if (conflict.length > 0) {
@@ -120,7 +120,7 @@ export default class User {
 
       if (fields.length > 0) {
         values.push(userId);
-        await transaction.query(`UPDATE users SET ${fields.join(', ')} WHERE id = ?`, values);
+        await transaction.query(`UPDATE user SET ${fields.join(', ')} WHERE id = ?`, values);
       }
 
       await transaction.commit();

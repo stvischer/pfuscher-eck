@@ -287,7 +287,7 @@ describe('DBLogger', () => {
     setBaseLogger(base);
     const db = new DBLogger('debug-format-test');
 
-    db.debug('SELECT id,name FROM users WHERE id=?', [1]);
+    db.debug('SELECT id,name FROM user WHERE id=?', [1]);
 
     assert.equal(childCalls.debug.length, 1);
     const formatted = childCalls.debug[0][0];
@@ -331,7 +331,7 @@ describe('DBLogger', () => {
     const db = new DBLogger('error-sql-test');
 
     const err = Object.assign(new Error('syntax'), { code: 'ER_SYNTAX' });
-    db.error(err, 'SELECT id FROM users');
+    db.error(err, 'SELECT id FROM user');
 
     const obj = childCalls.error[0][0];
     assert.equal(typeof obj.sql, 'string');

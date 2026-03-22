@@ -116,7 +116,7 @@ export default class Auth {
 
     try {
       const existing = await transaction.query(
-        'SELECT id FROM users WHERE email = ? OR username = ? LIMIT 1',
+        'SELECT id FROM user WHERE email = ? OR username = ? LIMIT 1',
         [email, username],
       );
       if (existing.length > 0) {
@@ -125,7 +125,7 @@ export default class Auth {
 
       const hash = await bcrypt.hash(password, 12);
       const result = await transaction.query(
-        'INSERT INTO users (username, email,password) VALUES (?, ?, ?)',
+        'INSERT INTO user (username, email,password) VALUES (?, ?, ?)',
         [username, email, hash],
       );
 
@@ -155,7 +155,7 @@ export default class Auth {
    */
   async login(email, password) {
     const user = await this.#fastify.db.queryOne(
-      'SELECT id, username, email, password, role FROM users WHERE email = ? LIMIT 1',
+      'SELECT id, username, email, password, role FROM user WHERE email = ? LIMIT 1',
       [email],
     );
 
@@ -198,7 +198,7 @@ export default class Auth {
       const stored = await transaction.queryOne(
         `SELECT rt.id, rt.user_id, rt.expires_at, u.role
            FROM refresh_tokens rt
-           JOIN users u ON u.id = rt.user_id
+           JOIN user u ON u.id = rt.user_id
            WHERE rt.token_hash = ? LIMIT 1`,
         [hash],
       );
@@ -257,7 +257,7 @@ export default class Auth {
     const transaction = await this.#fastify.db.transaction();
 
     try {
-      const row = await transaction.queryOne('SELECT password FROM users WHERE id = ? LIMIT 1', [
+      const row = await transaction.queryOne('SELECT password FROM user WHERE id = ? LIMIT 1', [
         userId,
       ]);
 
@@ -271,7 +271,7 @@ export default class Auth {
       }
 
       const hash = await bcrypt.hash(newPassword, 12);
-      await transaction.query('UPDATE users SET password = ? WHERE id = ?', [hash, userId]);
+      await transaction.query('UPDATE user SET password = ? WHERE id = ?', [hash, userId]);
 
       // Invalidate all refresh tokens for this user (force re-login on other devices)
       await transaction.query('DELETE FROM refresh_tokens WHERE user_id = ?', [userId]);

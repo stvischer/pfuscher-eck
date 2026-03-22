@@ -67,9 +67,10 @@ export default async function userRoutes(fastify) {
     },
   );
 
-  // ── GET /api/user/:id/addresses ──────────────────────────────────────────
+  // ── GET /api/user/:id/address ────────────────────────────────────────────
+  // Get the user's offer address (skill location)
   fastify.get(
-    '/api/user/:id/addresses',
+    '/api/user/:id/address',
     {
       preHandler: [fastify.authenticate],
       schema: fastify.schema.controller.user.addresses.list,
@@ -78,14 +79,15 @@ export default async function userRoutes(fastify) {
       const { id } = request.params;
       if (id !== request.user.id) return reply.code(403).send({ message: 'Forbidden' });
 
-      const addresses = await fastify.controller.address.listForUser(id);
-      reply.send(addresses);
+      const address = await fastify.controller.address.get('offer', id);
+      reply.send(address);
     },
   );
 
-  // ── POST /api/user/:id/addresses ─────────────────────────────────────────
+  // ── POST /api/user/:id/address ───────────────────────────────────────────
+  // Create or update the user's offer address
   fastify.post(
-    '/api/user/:id/addresses',
+    '/api/user/:id/address',
     {
       preHandler: [fastify.authenticate],
       schema: fastify.schema.controller.user.addresses.create,
@@ -94,12 +96,11 @@ export default async function userRoutes(fastify) {
       const { id } = request.params;
       if (id !== request.user.id) return reply.code(403).send({ message: 'Forbidden' });
 
-      const { addressType, radiusM, street, city, state, postalCode, country, lat, lon } =
-        request.body ?? {};
+      const { radius, enabled, street, city, state, postalCode, country, lat, lon } = request.body;
 
-      const { created, addresses } = await fastify.controller.address.upsert(id, {
-        addressType,
-        radiusM,
+      const { created, address } = await fastify.controller.address.upsert('offer', id, {
+        radius,
+        enabled,
         street,
         city,
         state,
@@ -109,27 +110,27 @@ export default async function userRoutes(fastify) {
         lon,
       });
 
-      reply.code(created ? 201 : 200).send(addresses);
+      reply.code(created ? 201 : 200).send(address);
     },
   );
 
-  // ── PATCH /api/user/:id/addresses/:aid ───────────────────────────────────
+  // ── PATCH /api/user/:id/address ──────────────────────────────────────────
+  // Update the user's offer address
   fastify.patch(
-    '/api/user/:id/addresses/:aid',
+    '/api/user/:id/address',
     {
       preHandler: [fastify.authenticate],
       schema: fastify.schema.controller.user.addresses.update,
     },
     async (request, reply) => {
-      const { id, aid } = request.params;
+      const { id } = request.params;
       if (id !== request.user.id) return reply.code(403).send({ message: 'Forbidden' });
 
-      const { addressType, radiusM, street, city, state, postalCode, country, lat, lon } =
-        request.body ?? {};
+      const { radius, enabled, street, city, state, postalCode, country, lat, lon } = request.body;
 
-      const addresses = await fastify.controller.address.update(id, aid, {
-        addressType,
-        radiusM,
+      const address = await fastify.controller.address.update('offer', id, {
+        radius,
+        enabled,
         street,
         city,
         state,
@@ -139,23 +140,24 @@ export default async function userRoutes(fastify) {
         lon,
       });
 
-      reply.send(addresses);
+      reply.send(address);
     },
   );
 
-  // ── DELETE /api/user/:id/addresses/:aid ──────────────────────────────────
+  // ── DELETE /api/user/:id/address ─────────────────────────────────────────
+  // Delete the user's offer address
   fastify.delete(
-    '/api/user/:id/addresses/:aid',
+    '/api/user/:id/address',
     {
       preHandler: [fastify.authenticate],
       schema: fastify.schema.controller.user.addresses.delete,
     },
     async (request, reply) => {
-      const { id, aid } = request.params;
+      const { id } = request.params;
       if (id !== request.user.id) return reply.code(403).send({ message: 'Forbidden' });
 
-      const addresses = await fastify.controller.address.delete(id, aid);
-      reply.send(addresses);
+      await fastify.controller.address.delete('offer', id);
+      reply.code(204).send();
     },
   );
 }

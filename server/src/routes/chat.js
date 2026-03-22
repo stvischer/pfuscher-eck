@@ -39,9 +39,9 @@ async function chatRoutes(fastify) {
                 (SELECT JSON_ARRAYAGG(JSON_OBJECT('emoji', r.emoji, 'userId', r.user_id))
                  FROM chat_reactions r WHERE r.message_id = m.id) AS reactions
          FROM chat_messages m
-         JOIN users u ON u.id = m.user_id
+         JOIN user u ON u.id = m.user_id
          LEFT JOIN chat_messages rm ON rm.id = m.reply_to
-         LEFT JOIN users ru ON ru.id = rm.user_id
+         LEFT JOIN user ru ON ru.id = rm.user_id
          WHERE m.chat_id = ?
            ${before ? 'AND m.created_at < ?' : ''}
          ORDER BY m.created_at ASC
