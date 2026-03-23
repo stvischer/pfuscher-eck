@@ -1,5 +1,3 @@
-import { Parser } from 'sql-ddl-to-json-schema';
-
 /**
  * @typedef {Object} TemporaryOptions
  * @property {string}          [prefix='']           - Name prefix for the shadow table.
@@ -37,7 +35,6 @@ export default class Temporary {
   #fastify;
   #transaction;
   #options;
-  #parser;
   #table;
 
   /** @type {boolean} Whether unique/FK checks are currently enabled. */
@@ -50,7 +47,6 @@ export default class Temporary {
    */
   constructor(fastify, table, options = {}) {
     this.#fastify = fastify;
-    this.#parser = new Parser('mariadb');
     this.#options = Object.assign(
       {
         table,
@@ -79,12 +75,11 @@ export default class Temporary {
   async open() {
     this.#transaction = await this.#fastify.db.transaction();
 
-    const createStatement = await this.#transaction.query('SHOW CREATE TABLE ??', [
-      this.#options.table,
-    ]);
-    this.#schema = this.#parser.feed(createStatement).toCompactJson(this.#parser.results)[0];
+    const columns = await this.#transaction.query(`SHOW COLUMNS FROM ${this.#options.table}`);
+    this.#schema = { columns: columns.map((row) => ({ name: row.Field })) };
 
-    await this.#transaction.query('CREATE TABLE ?? LIKE ??;', [this.#table, this.#options.table]);
+    await this.#drop(this.#table);
+    await this.#transaction.query(`CREATE TABLE ${this.#table} LIKE ${this.#options.table};`);
 
     if (this.#options.data) {
       await this.#copy();
@@ -121,12 +116,7 @@ export default class Temporary {
     await this.#transaction.commit();
     const oldTable = `${this.#table}_old`;
     await this.#drop(oldTable);
-    await this.#fastify.db.query('RENAME TABLE ?? TO ??, ?? TO ??', [
-      this.#options.table,
-      oldTable,
-      this.#table,
-      this.#options.table,
-    ]);
+    await this.#fastify.db.query(`RENAME TABLE ${this.#options.table} TO ${oldTable}, ${this.#table} TO ${this.#options.table}`);
     await this.#drop(oldTable);
   }
 
@@ -154,11 +144,8 @@ export default class Temporary {
     await this.#disableKeys();
 
     await this.#transaction.query(
-      `
-        INSERT INTO ?? (${columns.join(',')})
-        SELECT ${columns.join(',')} from ??
-        `,
-      [this.#table, this.#options.table],
+      `INSERT INTO ${this.#table} (${columns.join(',')})
+       SELECT ${columns.join(',')} FROM ${this.#options.table}`
     );
 
     if (this.#options.index != 'skip') {
@@ -202,6 +189,6 @@ export default class Temporary {
    * @returns {Promise<void>}
    */
   async #drop(table) {
-    await this.#fastify.db.query('DROP TABLE IF EXISTS ??', [table]);
+    await this.#fastify.db.query(`DROP TABLE IF EXISTS ${table}`);
   }
 }
