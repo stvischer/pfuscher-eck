@@ -1,7 +1,10 @@
 <template>
   <q-card flat>
     <q-card-section>
-      <div class="text-subtitle1 text-weight-medium q-mb-xs">Address</div>
+      <div class="row items-center q-mb-xs">
+        <div class="text-subtitle1 text-weight-medium col">Address</div>
+        <slot name="actions" />
+      </div>
       <div class="text-caption text-grey q-mb-md">Your physical or mailing address.</div>
 
       <!-- Autocomplete + map button -->

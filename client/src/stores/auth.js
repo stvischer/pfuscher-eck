@@ -107,6 +107,34 @@ export const useAuthStore = defineStore('auth', () => {
     }
   }
 
+  async function setAddressEnabled(enabled) {
+    loading.value = true;
+    error.value = null;
+    try {
+      const address = await api.patch(`/user/${user.value.id}/address/enabled`, { enabled });
+      user.value = { ...user.value, address };
+    } catch (err) {
+      error.value = err.message;
+      throw err;
+    } finally {
+      loading.value = false;
+    }
+  }
+
+  async function deleteAddress() {
+    loading.value = true;
+    error.value = null;
+    try {
+      await api.delete(`/user/${user.value.id}/address`);
+      user.value = { ...user.value, address: null };
+    } catch (err) {
+      error.value = err.message;
+      throw err;
+    } finally {
+      loading.value = false;
+    }
+  }
+
   async function updateSkills(skills) {
     loading.value = true;
     error.value = null;
@@ -148,6 +176,8 @@ export const useAuthStore = defineStore('auth', () => {
     updateProfile,
     updateSkills,
     upsertAddress,
+    setAddressEnabled,
+    deleteAddress,
     changePassword,
   };
 });

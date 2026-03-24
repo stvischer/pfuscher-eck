@@ -79,7 +79,8 @@ export default async function userRoutes(fastify) {
       const { id } = request.params;
       if (id !== request.user.id) return reply.code(403).send({ message: 'Forbidden' });
 
-      const address = await fastify.controller.address.getForUser(id);
+      const user = await fastify.db.queryOne('SELECT address_id FROM user WHERE id = ?', [id]);
+      const address = user?.address_id ? await fastify.controller.address.getById(user.address_id) : null;
       reply.send(address);
     },
   );
@@ -98,19 +99,33 @@ export default async function userRoutes(fastify) {
 
       const { radius, enabled, street, city, state, postalCode, country, lat, lon } = request.body;
 
-      const { created, address } = await fastify.controller.address.upsertForUser(id, {
-        radius,
-        enabled,
-        street,
-        city,
-        state,
-        postalCode,
-        country,
-        lat,
-        lon,
+      const user = await fastify.db.queryOne('SELECT address_id FROM user WHERE id = ?', [id]);
+      const { created, address } = await fastify.controller.address.upsert(user?.address_id ?? null, {
+        radius, enabled, street, city, state, postalCode, country, lat, lon,
       });
+      if (created) {
+        await fastify.db.query('UPDATE user SET address_id = ? WHERE id = ?', [address.id, id]);
+      }
 
       reply.code(created ? 201 : 200).send(address);
+    },
+  );
+
+  // ── PATCH /api/user/:id/address/enabled ────────────────────────────────
+  fastify.patch(
+    '/api/user/:id/address/enabled',
+    {
+      preHandler: [fastify.authenticate],
+      schema: fastify.schema.controller.user.addresses.setEnabled,
+    },
+    async (request, reply) => {
+      const { id } = request.params;
+      if (id !== request.user.id) return reply.code(403).send({ message: 'Forbidden' });
+      const { enabled } = request.body;
+      const user = await fastify.db.queryOne('SELECT address_id FROM user WHERE id = ?', [id]);
+      if (!user?.address_id) return reply.code(404).send({ message: 'Address not found' });
+      const address = await fastify.controller.address.update(user.address_id, { enabled });
+      reply.send(address);
     },
   );
 
@@ -128,7 +143,9 @@ export default async function userRoutes(fastify) {
 
       const { radius, enabled, street, city, state, postalCode, country, lat, lon } = request.body;
 
-      const address = await fastify.controller.address.updateForUser(id, {
+      const user = await fastify.db.queryOne('SELECT address_id FROM user WHERE id = ?', [id]);
+      if (!user?.address_id) return reply.code(404).send({ message: 'Address not found' });
+      const address = await fastify.controller.address.update(user.address_id, {
         radius,
         enabled,
         street,
@@ -156,7 +173,10 @@ export default async function userRoutes(fastify) {
       const { id } = request.params;
       if (id !== request.user.id) return reply.code(403).send({ message: 'Forbidden' });
 
-      await fastify.controller.address.deleteForUser(id);
+      const user = await fastify.db.queryOne('SELECT address_id FROM user WHERE id = ?', [id]);
+      if (!user?.address_id) return reply.code(404).send({ message: 'Address not found' });
+      await fastify.db.query('UPDATE user SET address_id = NULL WHERE id = ?', [id]);
+      await fastify.controller.address.delete(user.address_id);
       reply.code(204).send();
     },
   );

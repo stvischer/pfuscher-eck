@@ -44,7 +44,7 @@ export default class User {
    */
   async getById(userId) {
     const row = await this.#fastify.db.queryOne(
-      'SELECT id, username, display_name, email, role, bio, phone, created_at FROM user WHERE id = ? LIMIT 1',
+      'SELECT id, username, display_name, email, role, bio, phone, created_at, address_id FROM user WHERE id = ? LIMIT 1',
       [userId],
     );
 
@@ -53,7 +53,7 @@ export default class User {
     }
 
     const [address, skills] = await Promise.all([
-      this.#fastify.controller.address.getForUser(userId),
+      row.address_id ? this.#fastify.controller.address.getById(row.address_id) : null,
       this.#fastify.controller.skill.listForUser(userId),
     ]);
 
